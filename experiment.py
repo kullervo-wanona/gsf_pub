@@ -92,7 +92,7 @@ optimizer = torch.optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 
 exp_t_start = time.time()
 running_loss = 0.0
-for epoch in range(3):
+for epoch in range(1):
 
     data_loader.setup('Training', randomized=True, verbose=True)
     for i, curr_batch_size, batch_np in data_loader:     
