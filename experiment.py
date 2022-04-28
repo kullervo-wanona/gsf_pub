@@ -95,16 +95,16 @@ class Net3(torch.nn.Module):
         self.conv1_kernel = helper.cuda(torch.nn.parameter.Parameter(data=torch.tensor(conv1_kernel_np, dtype=torch.float32), requires_grad=True))
         self.conv1_bias = helper.cuda(torch.nn.parameter.Parameter(data=torch.zeros((50), dtype=torch.float32), requires_grad=True))
 
-        conv2_kernel_np = helper.get_conv_initial_weight_kernel_np([5, 5], 50, 128, 'he_uniform')
+        conv2_kernel_np = helper.get_conv_initial_weight_kernel_np([5, 5], 50, 64, 'he_uniform')
         self.conv2_kernel = helper.cuda(torch.nn.parameter.Parameter(data=torch.tensor(conv2_kernel_np, dtype=torch.float32), requires_grad=True))
-        self.conv2_bias = helper.cuda(torch.nn.parameter.Parameter(data=torch.zeros((128), dtype=torch.float32), requires_grad=True))
+        self.conv2_bias = helper.cuda(torch.nn.parameter.Parameter(data=torch.zeros((64), dtype=torch.float32), requires_grad=True))
 
         # self.fc1 = torch.nn.Linear(128*7*7, 120)
         # self.fc2 = torch.nn.Linear(120, 84)
         # self.fc3 = torch.nn.Linear(84, 10)
         # self.pool = torch.nn.MaxPool2d(2, 2)
 
-        self.fc1 = torch.nn.Linear(128*7*7, 120).to(device='cuda')
+        self.fc1 = torch.nn.Linear(64*7*7, 120).to(device='cuda')
         self.fc2 = torch.nn.Linear(120, 84).to(device='cuda')
         self.fc3 = torch.nn.Linear(84, 10).to(device='cuda')
         self.pool = torch.nn.MaxPool2d(2, 2).to(device='cuda')
@@ -121,8 +121,8 @@ class Net3(torch.nn.Module):
         return x
 
 # net = Net()
-net = Net2()
-# net = Net3()
+# net = Net2()
+net = Net3()
 
 criterion = torch.nn.CrossEntropyLoss()
 for e in net.parameters(): print(e.shape)
