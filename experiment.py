@@ -61,31 +61,27 @@ class Net2(torch.nn.Module):
         conv1_kernel_np = helper.get_conv_initial_weight_kernel_np([5, 5], 1, 100, 'he_uniform')
         self.conv1_kernel = helper.cuda(torch.nn.parameter.Parameter(data=torch.tensor(conv1_kernel_np, dtype=torch.float32), requires_grad=True))
         self.conv1_bias = helper.cuda(torch.nn.parameter.Parameter(data=torch.zeros((100), dtype=torch.float32), requires_grad=True))
-        # print(self.conv1_kernel.dtype)
-        # print(self.conv1_bias.dtype)
 
         conv2_kernel_np = helper.get_conv_initial_weight_kernel_np([5, 5], 100, 256, 'he_uniform')
         self.conv2_kernel = helper.cuda(torch.nn.parameter.Parameter(data=torch.tensor(conv2_kernel_np, dtype=torch.float32), requires_grad=True))
         self.conv2_bias = helper.cuda(torch.nn.parameter.Parameter(data=torch.zeros((256), dtype=torch.float32), requires_grad=True))
 
-        # print(self.conv1_kernel.dtype)
-        # print(self.conv1_bias.dtype)
+        # self.fc1 = torch.nn.Linear(256*4*4, 120)
+        # self.fc2 = torch.nn.Linear(120, 84)
+        # self.fc3 = torch.nn.Linear(84, 10)
+        # self.pool = torch.nn.MaxPool2d(2, 2)
 
-
-        self.fc1 = torch.nn.Linear(256*4*4, 120)
-        self.fc2 = torch.nn.Linear(120, 84)
-        self.fc3 = torch.nn.Linear(84, 10)
-        self.pool = torch.nn.MaxPool2d(2, 2)
-
-        # self.fc1 = torch.nn.Linear(256*4*4, 120).to(device='cuda')
-        # self.fc2 = torch.nn.Linear(120, 84).to(device='cuda')
-        # self.fc3 = torch.nn.Linear(84, 10).to(device='cuda')
-        # self.pool = torch.nn.MaxPool2d(2, 2).to(device='cuda')
+        self.fc1 = torch.nn.Linear(256*4*4, 120).to(device='cuda')
+        self.fc2 = torch.nn.Linear(120, 84).to(device='cuda')
+        self.fc3 = torch.nn.Linear(84, 10).to(device='cuda')
+        self.pool = torch.nn.MaxPool2d(2, 2).to(device='cuda')
 
     def forward(self, x):
-        x = torch.nn.functional.conv2d(x, self.conv1_kernel, bias=self.conv1_bias, stride=(1, 1), padding='valid', dilation=(1, 1))
+        # x = torch.nn.functional.conv2d(x, self.conv1_kernel, bias=self.conv1_bias, stride=(1, 1), padding='valid', dilation=(1, 1))
+        x = spatial_conv2D_lib.spatial_circular_conv2D_th(x, self.conv1_kernel, bias=self.conv1_bias)
         x = self.pool(torch.nn.functional.relu(x))
-        x = torch.nn.functional.conv2d(x, self.conv2_kernel, bias=self.conv2_bias, stride=(1, 1), padding='valid', dilation=(1, 1))
+        # x = torch.nn.functional.conv2d(x, self.conv2_kernel, bias=self.conv2_bias, stride=(1, 1), padding='valid', dilation=(1, 1))
+        x = spatial_conv2D_lib.spatial_circular_conv2D_th(x, self.conv2_kernel, bias=self.conv2_bias)
         x = self.pool(torch.nn.functional.relu(x))
         x = torch.flatten(x, 1) # flatten all dimensions except batch
         x = torch.nn.functional.relu(self.fc1(x))

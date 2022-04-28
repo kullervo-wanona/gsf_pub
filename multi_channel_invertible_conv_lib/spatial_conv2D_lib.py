@@ -69,7 +69,7 @@ def generate_random_kernel(c, k, channel_mode, backend='torch'):
         K_full = torch.tensor(K_full, dtype=torch.float32)
     return K_spatial, K_full
 
-def spatial_circular_conv2D_th(X_th, K_spatial_th, channel_mode='full'):
+def spatial_circular_conv2D_th(X_th, K_spatial_th, bias=None, channel_mode='full'):
     # assert (len(X_th.shape) == 4)
     # assert (len(K_spatial_th.shape) == 4)
     # assert (channel_mode in ['full', 'lower_block_triangular', 'block_diagonal'])
@@ -93,9 +93,9 @@ def spatial_circular_conv2D_th(X_th, K_spatial_th, channel_mode='full'):
 
     ###### PERFORM CONVOLUTION ######
     if channel_mode == 'full':
-        Y_th = torch.nn.functional.conv2d(padded_X_th, K_spatial_th, stride=(1, 1), padding='valid', dilation=(1, 1))
+        Y_th = torch.nn.functional.conv2d(padded_X_th, K_spatial_th, bias=bias, stride=(1, 1), padding='valid', dilation=(1, 1))
     else:
-        Y_th = torch.nn.functional.conv2d(padded_X_th, K_spatial_th, stride=(1, 1), padding='valid', dilation=(1, 1), groups=padded_X_th.shape[1])
+        Y_th = torch.nn.functional.conv2d(padded_X_th, K_spatial_th, bias=bias, stride=(1, 1), padding='valid', dilation=(1, 1), groups=padded_X_th.shape[1])
 
     ###### POST-PROCESS CONVOLUTION ######
     if channel_mode == 'lower_block_triangular': 
