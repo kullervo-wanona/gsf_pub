@@ -12,7 +12,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 import torch
 
-CUDA_FLAG = True
+CUDA_FLAG = False
 
 def cuda(x):
     global CUDA_FLAG
