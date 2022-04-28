@@ -66,7 +66,6 @@ class Net2(torch.nn.Module):
         self.conv2_kernel = helper.cuda(torch.nn.parameter.Parameter(data=torch.tensor(conv2_kernel_np, dtype=torch.float32), requires_grad=True))
         self.conv2_bias = helper.cuda(torch.nn.parameter.Parameter(data=torch.zeros((128), dtype=torch.float32), requires_grad=True))
 
-        trace()
         # self.fc1 = torch.nn.Linear(128*4*4, 120)
         # self.fc2 = torch.nn.Linear(120, 84)
         # self.fc3 = torch.nn.Linear(84, 10)
@@ -122,8 +121,8 @@ class Net3(torch.nn.Module):
         return x
 
 # net = Net()
-# net = Net2()
-net = Net3()
+net = Net2()
+# net = Net3()
 
 criterion = torch.nn.CrossEntropyLoss()
 for e in net.parameters(): print(e.shape)
