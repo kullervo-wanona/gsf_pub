@@ -61,7 +61,7 @@ class Net2(torch.nn.Module):
         conv1_kernel_np = helper.get_conv_initial_weight_kernel_np([5, 5], 1, 3, 'he_uniform')
         self.conv1_kernel = helper.cuda(torch.nn.parameter.Parameter(data=torch.tensor(conv1_kernel_np, dtype=torch.float32), requires_grad=True))
         self.conv1_bias = helper.cuda(torch.nn.parameter.Parameter(data=torch.zeros((3), dtype=torch.float32), requires_grad=True))
-        
+
         conv2_kernel_np = helper.get_conv_initial_weight_kernel_np([5, 5], 3, 16, 'he_uniform')
         self.conv2_kernel = helper.cuda(torch.nn.parameter.Parameter(data=torch.tensor(conv2_kernel_np, dtype=torch.float32), requires_grad=True))
         self.conv2_bias = helper.cuda(torch.nn.parameter.Parameter(data=torch.zeros((16), dtype=torch.float32), requires_grad=True))
@@ -96,8 +96,8 @@ for epoch in range(1):
 
     data_loader.setup('Training', randomized=True, verbose=True)
     for i, curr_batch_size, batch_np in data_loader:     
-        image_th = torch.from_numpy(batch_np['Image'])
-        label_th = torch.from_numpy(batch_np['Label'])
+        image_th = helper.cuda(torch.from_numpy(batch_np['Image']))
+        label_th = helper.cuda(torch.from_numpy(batch_np['Label']))
 
         # zero the parameter gradients
         optimizer.zero_grad()
