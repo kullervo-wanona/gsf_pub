@@ -61,7 +61,6 @@ class Net2(torch.nn.Module):
         conv1_kernel_np = helper.get_conv_initial_weight_kernel_np([5, 5], 1, 3, 'he_uniform')
         self.conv1_kernel = helper.cuda(torch.nn.parameter.Parameter(data=torch.tensor(conv1_kernel_np, dtype=torch.float32), requires_grad=True))
         self.conv1_bias = helper.cuda(torch.nn.parameter.Parameter(data=torch.zeros((3), dtype=torch.float32), requires_grad=True))
-        trace()
         
         conv2_kernel_np = helper.get_conv_initial_weight_kernel_np([5, 5], 3, 16, 'he_uniform')
         self.conv2_kernel = helper.cuda(torch.nn.parameter.Parameter(data=torch.tensor(conv2_kernel_np, dtype=torch.float32), requires_grad=True))
