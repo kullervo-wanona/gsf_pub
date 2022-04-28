@@ -84,8 +84,8 @@ class Net2(torch.nn.Module):
         return x
 
 
-net = Net()
-# net = Net2()
+# net = Net()
+net = Net2()
 
 criterion = torch.nn.CrossEntropyLoss()
 for e in net.parameters(): print(e.shape)
