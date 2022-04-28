@@ -72,10 +72,15 @@ class Net2(torch.nn.Module):
         # print(self.conv1_bias.dtype)
 
 
-        self.fc1 = torch.nn.Linear(256*4*4, 120).to(device='cuda')
-        self.fc2 = torch.nn.Linear(120, 84).to(device='cuda')
-        self.fc3 = torch.nn.Linear(84, 10).to(device='cuda')
-        self.pool = torch.nn.MaxPool2d(2, 2).to(device='cuda')
+        self.fc1 = torch.nn.Linear(256*4*4, 120)
+        self.fc2 = torch.nn.Linear(120, 84)
+        self.fc3 = torch.nn.Linear(84, 10)
+        self.pool = torch.nn.MaxPool2d(2, 2)
+
+        # self.fc1 = torch.nn.Linear(256*4*4, 120).to(device='cuda')
+        # self.fc2 = torch.nn.Linear(120, 84).to(device='cuda')
+        # self.fc3 = torch.nn.Linear(84, 10).to(device='cuda')
+        # self.pool = torch.nn.MaxPool2d(2, 2).to(device='cuda')
 
     def forward(self, x):
         x = torch.nn.functional.conv2d(x, self.conv1_kernel, bias=self.conv1_bias, stride=(1, 1), padding='valid', dilation=(1, 1))
