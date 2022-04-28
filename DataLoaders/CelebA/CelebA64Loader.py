@@ -31,7 +31,7 @@ class DataLoader:
         self.batch_size = batch_size
         self.buffer_batch_ratio = 100
         self.iter = 0
-        self.image_size = [-1, 64, 64, 3]
+        self.image_size = [-1, 3, 64, 64]
         self.dataset_dir = str(Path.home())+'/Datasets/CelebA/CelebA64/'
         try: self.load_h5()
         except: self.create_h5(); self.load_h5()
@@ -213,16 +213,17 @@ class DataLoader:
                 image_file_path = source_dir + 'img_align_celeba/' + filenames[i-1]
                 raw_image = np.asarray(Image.open(image_file_path))
                 cropped_image = self.crop_raw_image(raw_image)
-                downsampled_image = self.downsample_image(cropped_image, self.image_size[1:3])
-                                  
+                downsampled_image = self.downsample_image(cropped_image, self.image_size[2:4])
+                downsampled_image_channel_first = np.transpose(downsampled_image, [2, 0, 1])
+
                 if training_mask[i-1]:
-                    training_images_data[training_index, ...] = downsampled_image
+                    training_images_data[training_index, ...] = downsampled_image_channel_first
                     training_index += 1
                 elif validation_mask[i-1]:
-                    validation_images_data[validation_index, ...] = downsampled_image
+                    validation_images_data[validation_index, ...] = downsampled_image_channel_first
                     validation_index += 1
                 elif test_mask[i-1]:
-                    test_images_data[test_index, ...] = downsampled_image
+                    test_images_data[test_index, ...] = downsampled_image_channel_first
                     test_index += 1
             else:
                 zipfile_object.extract(file, source_dir)

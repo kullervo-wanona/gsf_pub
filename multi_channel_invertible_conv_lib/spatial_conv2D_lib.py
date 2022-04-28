@@ -43,6 +43,7 @@ def generate_identity_kernel(c, k, channel_mode, backend='torch'):
 def generate_random_kernel(c, k, channel_mode, backend='torch'):
     assert (channel_mode in ['full', 'lower_block_triangular', 'block_diagonal'])
     
+    print('\n\nFIX YOUR INITIALIZATIONS!!!!!!!\n\n')
     if channel_mode == 'full':
         K_spatial = np.random.randn(c, c, k, k)
     elif channel_mode == 'lower_block_triangular':
