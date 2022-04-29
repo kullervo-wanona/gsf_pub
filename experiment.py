@@ -145,7 +145,7 @@ class Net4(torch.nn.Module):
     def sample_x(self, n_samples=10):
         return self.inverse(self.sample_y(n_samples))
 
-    def forward(self, x):
+    def forward(self, x, until_layer_id=None):
         conv_log_dets, nonlin_logdets = [], []
         
         curr_inp = x
@@ -153,24 +153,25 @@ class Net4(torch.nn.Module):
         # trace()       
         # print(curr_inp.shape)
         for layer_id, k in enumerate(self.k_list):
-            for squeeze_i in range(self.squeeze_list[layer_id]):
-                curr_inp = self.squeeze(curr_inp)
-            # print(curr_inp.shape)
-            conv_out = spatial_conv2D_lib.spatial_circular_conv2D_th(
-                curr_inp, getattr(self, 'conv_kernel_'+str(layer_id+1)), 
-                bias=getattr(self, 'conv_bias_'+str(layer_id+1)))
-            # print(conv_out.max(), conv_out.mean(), conv_out.min())
+            if until_layer_id is not None and layer_id < until_layer_id:
+                for squeeze_i in range(self.squeeze_list[layer_id]):
+                    curr_inp = self.squeeze(curr_inp)
+                # print(curr_inp.shape)
+                conv_out = spatial_conv2D_lib.spatial_circular_conv2D_th(
+                    curr_inp, getattr(self, 'conv_kernel_'+str(layer_id+1)), 
+                    bias=getattr(self, 'conv_bias_'+str(layer_id+1)))
+                # print(conv_out.max(), conv_out.mean(), conv_out.min())
 
-            conv_log_det = self.compute_conv_logdet_from_K(layer_id)
-            conv_log_dets.append(conv_log_det)
-            if layer_id < len(self.k_list)-1:
-                # nonlin_out, nonlin_logdet = self.tanh_with_logdet(conv_out)
-                nonlin_out, nonlin_logdet = self.leaky_relu_with_logdet(conv_out)
-                nonlin_logdets.append(nonlin_logdet)
-                curr_inp = nonlin_out
-            else:
-                curr_inp = conv_out
-
+                conv_log_det = self.compute_conv_logdet_from_K(layer_id)
+                conv_log_dets.append(conv_log_det)
+                if layer_id < len(self.k_list)-1:
+                    # nonlin_out, nonlin_logdet = self.tanh_with_logdet(conv_out)
+                    nonlin_out, nonlin_logdet = self.leaky_relu_with_logdet(conv_out)
+                    nonlin_logdets.append(nonlin_logdet)
+                    curr_inp = nonlin_out
+                else:
+                    curr_inp = conv_out
+        trace()
         y = curr_inp
         nonlin_logdets_sum = sum(nonlin_logdets)
         conv_log_dets_sum = sum(conv_log_dets)
@@ -232,7 +233,9 @@ for epoch in range(10):
 
         optimizer.zero_grad() # zero the parameter gradients
 
+        lay_input_0 = net.forward(image, until_layer_id=0)
         latent, log_pdf_image = net(image)
+        
         # assert (torch.abs(latent-image).max() > 0.1)
         # print(torch.abs(image_reconst-image).max())
         # assert (torch.abs(image_reconst-image).max() < 1e-3)
