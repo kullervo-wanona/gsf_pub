@@ -58,7 +58,7 @@ class Net4(torch.nn.Module):
 
             _, iden_K = spatial_conv2D_lib.generate_identity_kernel(curr_c, curr_k, 'full', backend='numpy')
             rand_kernel_np = helper.get_conv_initial_weight_kernel_np([curr_k, curr_k], curr_c, curr_c, 'he_uniform')
-            curr_kernel_np = iden_K + 0.01*rand_kernel_np 
+            curr_kernel_np = iden_K + 0.001*rand_kernel_np 
             curr_conv_kernel_param = torch.nn.parameter.Parameter(data=helper.cuda(torch.tensor(curr_kernel_np, dtype=torch.float32)), requires_grad=True)
             setattr(self, 'conv_kernel_'+str(layer_id+1), curr_conv_kernel_param)
             curr_conv_bias_param = torch.nn.parameter.Parameter(data=helper.cuda(torch.zeros((curr_c), dtype=torch.float32)), requires_grad=True)
@@ -116,7 +116,7 @@ class Net4(torch.nn.Module):
         y_logdet = torch.log(y_deriv).sum(axis=[1, 2, 3])
         return y, y_logdet
     
-    def inverse_leaky_relu(self, y, pos_slope=1., neg_slope=0.7):
+    def inverse_leaky_relu(self, y, pos_slope=1.2, neg_slope=0.8):
         y_pos = torch.relu(y)
         y_neg = y-y_pos
         x = (1/pos_slope)*y_pos+(1/neg_slope)*y_neg
@@ -209,7 +209,7 @@ class Net4(torch.nn.Module):
         return x
 
 # net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[5, 5, 5, 4, 4, 4, 2, 2, 2], squeeze_list=[0, 1, 0, 0, 0, 0, 0, 0, 0])
-net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[10, 10, 10], squeeze_list=[0, 1, 0])
+net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[4, 4, 4], squeeze_list=[0, 0, 0])
 criterion = torch.nn.CrossEntropyLoss()
 
 n_param = 0 
