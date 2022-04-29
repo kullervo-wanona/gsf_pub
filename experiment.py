@@ -165,7 +165,6 @@ for epoch in range(10):
         optimizer.zero_grad() # zero the parameter gradients
 
         latent, log_pdf_image = net(image)
-        # image_reconst = net.inverse(latent)
 
         # assert (torch.abs(latent-image).max() > 0.1)
         # print(torch.abs(image_reconst-image).max())
@@ -177,7 +176,9 @@ for epoch in range(10):
 
         running_loss += loss.item()
         if i % 300 == 0:
+            image_reconst = net.inverse(latent)
             image_sample = net.sample_x(n_samples=10)        
+            helper.vis_samples_np(image_reconst.detach().numpy(), sample_dir='/Users/mev/samples_from_schur/reconst/', prefix='reconst')
             helper.vis_samples_np(image_sample.detach().numpy(), sample_dir='/Users/mev/samples_from_schur/network/', prefix='network')
 
             print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 2000:.5f}')
