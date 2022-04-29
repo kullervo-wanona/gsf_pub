@@ -57,8 +57,8 @@ class Net4(torch.nn.Module):
 
         self.K_to_schur_log_determinant_funcs = {(k, self.n): 
             spectral_schur_det_lib.generate_kernel_to_schur_log_determinant(k, self.n, backend='torch') for k in self.k_list}
-        self.normal_dist = torch.distributions.Normal(torch.tensor([0.0]), torch.tensor([1.0]))
-        self.normal_dist_delta = torch.distributions.Normal(torch.tensor([0.0]), torch.tensor([0.2]))
+        self.normal_dist = torch.distributions.Normal(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([1.0])))
+        self.normal_dist_delta = torch.distributions.Normal(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([0.2])))
 
     def leaky_relu_with_logdet(self, x, pos_slope=1.1, neg_slope=0.9):
         x_pos = torch.relu(x)
