@@ -164,8 +164,8 @@ class Net4(torch.nn.Module):
             conv_log_det = self.compute_conv_logdet_from_K(layer_id)
             conv_log_dets.append(conv_log_det)
             if layer_id < len(self.k_list)-1:
-                nonlin_out, nonlin_logdet = self.tanh_with_logdet(conv_out)
-                # nonlin_out, nonlin_logdet = self.leaky_relu_with_logdet(conv_out)
+                # nonlin_out, nonlin_logdet = self.tanh_with_logdet(conv_out)
+                nonlin_out, nonlin_logdet = self.leaky_relu_with_logdet(conv_out)
                 nonlin_logdets.append(nonlin_logdet)
                 curr_inp = nonlin_out
             else:
@@ -190,8 +190,8 @@ class Net4(torch.nn.Module):
         nonlin_out = y
         for layer_id in list(range(len(self.k_list)))[::-1]:
             if layer_id < len(self.k_list)-1:
-                conv_out = self.inverse_tanh(nonlin_out)
-                # conv_out = self.inverse_leaky_relu(nonlin_out)
+                # conv_out = self.inverse_tanh(nonlin_out)
+                conv_out = self.inverse_leaky_relu(nonlin_out)
             else: conv_out = nonlin_out 
             # print(conv_out.min(), conv_out.max())
 
@@ -204,8 +204,8 @@ class Net4(torch.nn.Module):
             nonlin_out = curr_inp
         # print(curr_inp.shape)
 
-        x = torch.sigmoid(nonlin_out)
         x = nonlin_out
+        x = torch.sigmoid(x)
         return x
 
 # net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[5, 5, 5, 4, 4, 4, 2, 2, 2], squeeze_list=[0, 1, 0, 0, 0, 0, 0, 0, 0])
