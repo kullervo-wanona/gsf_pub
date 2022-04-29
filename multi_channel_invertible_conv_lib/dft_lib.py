@@ -68,6 +68,7 @@ def SubmatrixDFT(K, n, backend='torch'):
 	k = K.shape[-1]
 	F_relevant = DFT_matrix_F(n, n_rows=k, shift=[+(k-1), +(k-1)], backend=backend)
 	if backend == 'torch':
+		F_relevant = helper.cuda(F_relevant)
 		K_time_reversed = torch.flip(K, [-1, -2])
 	elif backend == 'numpy':
 		K_time_reversed = np.flip(K, [-1, -2]).copy()
