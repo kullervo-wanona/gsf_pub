@@ -149,14 +149,11 @@ net = Net4(c=data_loader.image_size[1], n=data_loader.image_size[3], k_list=[3, 
 criterion = torch.nn.CrossEntropyLoss()
 
 n_param = 0 
-# for e in self.parameters(): print(e.shape)
 for e in net.parameters():
     print(e.shape)
     n_param += np.prod(e.shape)
 print('Total number of parameters: ' + str(n_param))
-trace()
 optimizer = torch.optim.Adam(net.parameters(), lr=0.001, betas=(0.5, 0.9), eps=1e-08)
-
 
 helper.vis_samples_np(example_batch['Image'], sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/real/', prefix='real')
 
