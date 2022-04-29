@@ -49,8 +49,8 @@ class Net4(torch.nn.Module):
             _, iden_K = spatial_conv2D_lib.generate_identity_kernel(self.c, k, 'full', backend='numpy')
             rand_kernel_np = helper.get_conv_initial_weight_kernel_np([k, k], self.c, self.c, 'he_uniform')
             curr_kernel_np = iden_K + 0.001*rand_kernel_np 
-            setattr(self, 'conv_kernel_'+str(layer_id+1), helper.cuda(torch.nn.parameter.Parameter(data=torch.tensor(curr_kernel_np, dtype=torch.float32), requires_grad=True)))
-            setattr(self, 'conv_bias_'+str(layer_id+1), helper.cuda(torch.nn.parameter.Parameter(data=torch.zeros((self.c), dtype=torch.float32), requires_grad=True)))
+            setattr(self, 'conv_kernel_'+str(layer_id+1), torch.nn.parameter.Parameter(data=helper.cuda(torch.tensor(curr_kernel_np, dtype=torch.float32)), requires_grad=True))
+            setattr(self, 'conv_bias_'+str(layer_id+1), helper.cuda(torch.nn.parameter.Parameter(data=helper.cuda(torch.zeros((self.c), dtype=torch.float32)), requires_grad=True))
 
         self.K_to_schur_log_determinant_funcs = {(k, self.n): 
             spectral_schur_det_lib.generate_kernel_to_schur_log_determinant(k, self.n, backend='torch') for k in self.k_list}
