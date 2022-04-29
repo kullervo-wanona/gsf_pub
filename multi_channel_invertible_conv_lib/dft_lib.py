@@ -9,6 +9,7 @@ else:
 import numpy as np
 import torch
 
+import helper
 from multi_channel_invertible_conv_lib import complex_lib
 
 def n_embedded_fft_kernel(K, n, backend='torch'):
