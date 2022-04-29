@@ -49,9 +49,8 @@ class Net4(torch.nn.Module):
             _, iden_K = spatial_conv2D_lib.generate_identity_kernel(self.c, k, 'full', backend='numpy')
             rand_kernel_np = helper.get_conv_initial_weight_kernel_np([k, k], self.c, self.c, 'he_uniform')
             curr_kernel_np = iden_K + 0.001*rand_kernel_np            
-            curr_conv_kernel = helper.cuda(torch.nn.parameter.Parameter(data=torch.tensor(curr_kernel_np, dtype=torch.float32), requires_grad=True))
-            self.conv_cc = curr_conv_kernel
-            setattr(self, 'conv_kernel_'+str(layer_id+1), curr_conv_kernel)
+            self.conv_cc = helper.cuda(torch.nn.parameter.Parameter(data=torch.tensor(curr_kernel_np, dtype=torch.float32), requires_grad=True))
+            setattr(self, 'conv_kernel_'+str(layer_id+1), self.conv_cc)
             curr_conv_bias = helper.cuda(torch.nn.parameter.Parameter(data=torch.zeros((self.c), dtype=torch.float32), requires_grad=True))
             setattr(self, 'conv_bias_'+str(layer_id+1), curr_conv_bias)
 
