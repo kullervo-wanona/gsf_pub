@@ -204,7 +204,7 @@ class Net4(torch.nn.Module):
         x = torch.sigmoid(nonlin_out)
         return x
 
-net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[3, 3, 2, 2, 2], squeeze_list=[0, 1, 1, 0, 0])
+net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[5, 5, 5, 4, 4, 4, 2, 2, 2], squeeze_list=[0, 1, 0, 0, 0, 0, 0, 0, 0])
 criterion = torch.nn.CrossEntropyLoss()
 
 n_param = 0 
@@ -213,7 +213,7 @@ for e in net.parameters():
     n_param += np.prod(e.shape)
 print('Total number of parameters: ' + str(n_param))
 # optimizer = torch.optim.Adam(net.parameters(), lr=0.001, betas=(0.5, 0.9), eps=1e-08)
-optimizer = torch.optim.Adam(net.parameters(), lr=0.01, betas=(0.9, 0.95), eps=1e-08)
+optimizer = torch.optim.Adam(net.parameters(), lr=0.0001, betas=(0.95, 0.999), eps=1e-08)
 
 helper.vis_samples_np(example_batch['Image'], sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/real/', prefix='real')
 
