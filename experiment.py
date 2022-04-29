@@ -198,7 +198,7 @@ class Net4(torch.nn.Module):
         x = nonlin_out
         return x
 
-net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[3, 3, 3, 3, 4], squeeze_list=[0, 1, 1, 1, 0])
+net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[3, 3, 3, 3, 4], squeeze_list=[0, 1, 1, 0, 0])
 criterion = torch.nn.CrossEntropyLoss()
 
 n_param = 0 
@@ -216,7 +216,7 @@ for epoch in range(10):
 
     data_loader.setup('Training', randomized=True, verbose=True)
     for i, curr_batch_size, batch_np in data_loader:     
-        image = helper.cuda(torch.from_numpy(batch_np['Image'])) #-0.5
+        image = helper.cuda(torch.from_numpy(batch_np['Image']))-0.5
 
         optimizer.zero_grad() # zero the parameter gradients
 
@@ -230,7 +230,7 @@ for epoch in range(10):
         optimizer.step()
 
         running_loss += loss.item()
-        if i % 1000 == 0:
+        if i % 100 == 0:
             image_reconst = net.inverse(latent)
             image_sample = net.sample_x(n_samples=10)            
             helper.vis_samples_np(helper.cpu(image_reconst).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/reconst/', prefix='reconst')
