@@ -6,6 +6,7 @@ else:
     import ipdb
     trace = ipdb.set_trace
 
+import os
 from PIL import Image
 from matplotlib import pyplot as plt
 
@@ -36,7 +37,15 @@ def load_image(path, size=None):
     if size is not None: im_Image_format = im_Image_format.resize(size, Image.BICUBIC)
     im = np.asarray(im_Image_format, dtype="uint8").astype(float)[:, :, :3]/255.0
     return im 
-    
+
+def vis_samples_np(samples, sample_dir, prefix=None):
+    if not os.path.exists(sample_dir): os.makedirs(sample_dir)
+    for i in range(samples.shape[0]):
+        path = sample_dir + 'sample_' 
+        if prefix is not None: path += prefix + '_'
+        path += str(i) + '.png' 
+        save_image(np.transpose(samples[i], [1, 2, 0]), path, rescale=False)
+        
 def vectorize(tensor):
     # vectorize last d-1 dims, column indeces together (entire row), then row indices (entire channel), then channel indices (entire image)
     # return tensor.reshape(tensor.shape[0], tensor.shape[1]*tensor.shape[2]*tensor.shape[3])

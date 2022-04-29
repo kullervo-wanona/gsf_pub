@@ -64,7 +64,7 @@ def spectral_schur_log_determinant(Lambda, complement_mode='H/D', backend='torch
 
 def generate_SubmatrixDFT(k, n, backend='torch'):
 	# FFT of K_hat from K (c x c x k x k)
-	F_relevant = helper.cuda_maybe_th(dft_lib.DFT_matrix_F(n, n_rows=k, shift=[+(k-1), +(k-1)], backend=backend), cuda=True)
+	F_relevant = helper.cuda(dft_lib.DFT_matrix_F(n, n_rows=k, shift=[+(k-1), +(k-1)], backend=backend))
 	F_expand = F_relevant[:, np.newaxis, np.newaxis]
 	F_T_expand = complex_lib.transpose(F_relevant, backend=backend)[:, np.newaxis, np.newaxis]
 	def func_SubmatrixDFT(K):
