@@ -103,8 +103,7 @@ class Net4(torch.nn.Module):
     def logit_with_logdet(self, x):
         x_safe = 0.0005+x*0.999
         y = torch.log(x_safe)-torch.log(1-x_safe)
-        y_deriv = 1/x_safe-1/(1-x_safe)
-        y_logdet = torch.log(y_deriv).sum(axis=[1, 2, 3])
+        y_logdet = (-torch.log(x_safe)-torch.log(1-x_safe)).sum(axis=[1, 2, 3])
         return y, y_logdet
 
     def leaky_relu_with_logdet(self, x, pos_slope=1.1, neg_slope=0.9):
@@ -149,7 +148,7 @@ class Net4(torch.nn.Module):
     def forward(self, x):
         conv_log_dets, nonlin_logdets = [], []
         
-        curr_inp, logit_logdet = self.logit_with_logdet(x)
+        curr_inp, logit_logdet = self.logit_with_logdet(x)        
         # print(curr_inp.shape)
         for layer_id, k in enumerate(self.k_list):
             for squeeze_i in range(self.squeeze_list[layer_id]):
@@ -213,7 +212,8 @@ for e in net.parameters():
     print(e.shape)
     n_param += np.prod(e.shape)
 print('Total number of parameters: ' + str(n_param))
-optimizer = torch.optim.Adam(net.parameters(), lr=0.001, betas=(0.5, 0.9), eps=1e-08)
+# optimizer = torch.optim.Adam(net.parameters(), lr=0.001, betas=(0.5, 0.9), eps=1e-08)
+optimizer = torch.optim.Adam(net.parameters(), lr=0.0001, betas=(0.9, 0.95), eps=1e-08)
 
 helper.vis_samples_np(example_batch['Image'], sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/real/', prefix='real')
 
