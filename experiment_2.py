@@ -40,65 +40,25 @@ _, _, example_batch = next(data_loader)
 
 
 class Net4(torch.nn.Module):
-    def __init__(self, c_in, n_in, k_list, squeeze_list):
+    def __init__(self, c, n, k_list):
         super().__init__()
-        self.n_in = n_in
-        self.c_in = c_in
+        self.n = n
+        self.c = c
         self.k_list = k_list
-        self.squeeze_list = squeeze_list
-        assert (len(self.squeeze_list) == len(self.k_list))
 
-        self.K_to_schur_log_determinant_funcs = []
-        accum_squeeze = 0
-        for layer_id, curr_k in enumerate(self.k_list):
-            accum_squeeze += self.squeeze_list[layer_id]
-            curr_c = self.c_in*(4**accum_squeeze)
-            curr_n = self.n_in//(2**accum_squeeze)
-            print(curr_c, (curr_n, curr_n), curr_c*curr_n*curr_n)
-
-            _, iden_K = spatial_conv2D_lib.generate_identity_kernel(curr_c, curr_k, 'full', backend='numpy')
-            rand_kernel_np = helper.get_conv_initial_weight_kernel_np([curr_k, curr_k], curr_c, curr_c, 'he_uniform')
+        for layer_id, k in enumerate(self.k_list):
+            _, iden_K = spatial_conv2D_lib.generate_identity_kernel(self.c, k, 'full', backend='numpy')
+            rand_kernel_np = helper.get_conv_initial_weight_kernel_np([k, k], self.c, self.c, 'he_uniform')
             curr_kernel_np = iden_K + 0.001*rand_kernel_np 
             curr_conv_kernel_param = torch.nn.parameter.Parameter(data=helper.cuda(torch.tensor(curr_kernel_np, dtype=torch.float32)), requires_grad=True)
             setattr(self, 'conv_kernel_'+str(layer_id+1), curr_conv_kernel_param)
-            curr_conv_bias_param = torch.nn.parameter.Parameter(data=helper.cuda(torch.zeros((curr_c), dtype=torch.float32)), requires_grad=True)
+            curr_conv_bias_param = torch.nn.parameter.Parameter(data=helper.cuda(torch.zeros((self.c), dtype=torch.float32)), requires_grad=True)
             setattr(self, 'conv_bias_'+str(layer_id+1), curr_conv_bias_param)
 
-            self.K_to_schur_log_determinant_funcs.append(spectral_schur_det_lib.generate_kernel_to_schur_log_determinant(curr_k, curr_n, backend='torch'))
-        
-        self.c_out = curr_c
-        self.n_out = curr_n
-
+        self.K_to_schur_log_determinant_funcs = {(k, self.n): 
+            spectral_schur_det_lib.generate_kernel_to_schur_log_determinant(k, self.n, backend='torch') for k in self.k_list}
         self.normal_dist = torch.distributions.Normal(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([1.0])))
         self.normal_dist_delta = torch.distributions.Normal(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([0.2])))
-
-    def squeeze(self, x):
-        """Squeezes a C x H x W tensor into a 4C x H/2 x W/2 tensor.
-        (See Fig 3 in the real NVP paper.)
-        Args:
-            x: input tensor (B x C x H x W).
-        Returns:
-            the squeezed tensor (B x 4C x H/2 x W/2).
-        """
-        [B, C, H, W] = list(x.size())
-        x = x.reshape(B, C, H//2, 2, W//2, 2)
-        x = x.permute(0, 1, 3, 5, 2, 4)
-        x = x.reshape(B, C*4, H//2, W//2)
-        return x
-
-    def undo_squeeze(self, x):
-        """unsqueezes a C x H x W tensor into a C/4 x 2H x 2W tensor.
-        (See Fig 3 in the real NVP paper.)
-        Args:
-            x: input tensor (B x C x H x W).
-        Returns:
-            the squeezed tensor (B x C/4 x 2H x 2W).
-        """
-        [B, C, H, W] = list(x.size())
-        x = x.reshape(B, C//4, 2, 2, H, W)
-        x = x.permute(0, 1, 4, 2, 5, 3)
-        x = x.reshape(B, C//4, H*2, W*2)
-        return x
 
     def leaky_relu_with_logdet(self, x, pos_slope=1.1, neg_slope=0.9):
         x_pos = torch.relu(x)
@@ -125,16 +85,15 @@ class Net4(torch.nn.Module):
     def inverse_tanh(self, y):
         return 0.5*(torch.log(1+y+1e-4)-torch.log(1-y+1e-4))
 
-    def compute_conv_logdet_from_K(self, layer_id):
-        K = getattr(self, 'conv_kernel_'+str(layer_id+1))
-        return self.K_to_schur_log_determinant_funcs[layer_id](K)
+    def compute_conv_logdet_from_K(self, K):
+        return self.K_to_schur_log_determinant_funcs[K.shape[-1], self.n](K)
 
     def compute_normal_log_pdf(self, y):
         return self.normal_dist.log_prob(y).sum(axis=[1, 2, 3])
 
     def sample_y(self, n_samples=10):
-        return self.normal_dist.sample([n_samples, self.c_out, self.n_out, self.n_out])[..., 0]
-        # return self.normal_dist_delta.sample([n_samples, self.c_out, self.n_out, self.n_out])[..., 0]
+        return self.normal_dist.sample([n_samples, self.c, self.n, self.n])[..., 0]
+        # return self.normal_dist_delta.sample([n_samples, self.c, self.n, self.n])[..., 0]
 
     def sample_x(self, n_samples=10):
         return self.inverse(self.sample_y(n_samples))
@@ -143,17 +102,12 @@ class Net4(torch.nn.Module):
         conv_log_dets, nonlin_logdets = [], []
         
         curr_inp = x
-        # print(curr_inp.shape)
         for layer_id, k in enumerate(self.k_list):
-            for squeeze_i in range(self.squeeze_list[layer_id]):
-                curr_inp = self.squeeze(curr_inp)
-            # print(curr_inp.shape)
             conv_out = spatial_conv2D_lib.spatial_circular_conv2D_th(
                 curr_inp, getattr(self, 'conv_kernel_'+str(layer_id+1)), 
                 bias=getattr(self, 'conv_bias_'+str(layer_id+1)))
             # print(conv_out.max(), conv_out.mean(), conv_out.min())
-
-            conv_log_det = self.compute_conv_logdet_from_K(layer_id)
+            conv_log_det = self.compute_conv_logdet_from_K(getattr(self, 'conv_kernel_'+str(layer_id+1)))
             conv_log_dets.append(conv_log_det)
             if layer_id < len(self.k_list)-1:
                 # nonlin_out, nonlin_logdet = self.tanh_with_logdet(conv_out)
@@ -185,20 +139,14 @@ class Net4(torch.nn.Module):
                 conv_out = self.inverse_leaky_relu(nonlin_out)
             else: conv_out = nonlin_out 
             # print(conv_out.min(), conv_out.max())
-
             curr_inp = frequency_conv2D_lib.frequency_inverse_circular_conv2D(conv_out-getattr(self, 'conv_bias_'+str(layer_id+1))[np.newaxis, :, np.newaxis, np.newaxis], getattr(self, 'conv_kernel_'+str(layer_id+1)), 'full', mode='complex', backend='torch')
             # print(curr_inp.min(), curr_inp.max())
-
-            # print(curr_inp.shape)
-            for squeeze_i in range(self.squeeze_list[layer_id]):
-                curr_inp = self.undo_squeeze(curr_inp)
             nonlin_out = curr_inp
-        # print(curr_inp.shape)
 
         x = nonlin_out
         return x
 
-net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[3, 3, 3, 3, 4], squeeze_list=[0, 1, 1, 1, 0])
+net = Net4(c=data_loader.image_size[1], n=data_loader.image_size[3], k_list=[3, 3, 4, 6, 8])
 criterion = torch.nn.CrossEntropyLoss()
 
 n_param = 0 
@@ -221,6 +169,7 @@ for epoch in range(10):
         optimizer.zero_grad() # zero the parameter gradients
 
         latent, log_pdf_image = net(image)
+
         # assert (torch.abs(latent-image).max() > 0.1)
         # print(torch.abs(image_reconst-image).max())
         # assert (torch.abs(image_reconst-image).max() < 1e-3)
