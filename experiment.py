@@ -152,7 +152,7 @@ for e in net.parameters(): print(e.shape)
 optimizer = torch.optim.Adam(net.parameters(), lr=0.001, betas=(0.5, 0.9), eps=1e-08)
 
 
-helper.vis_samples_np(example_batch['Image'], sample_dir='/Users/mev/samples_from_schur/real/', prefix='real')
+helper.vis_samples_np(example_batch['Image'], sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/real/', prefix='real')
 
 exp_t_start = time.time()
 running_loss = 0.0
@@ -177,9 +177,9 @@ for epoch in range(10):
         running_loss += loss.item()
         if i % 300 == 0:
             image_reconst = net.inverse(latent)
-            image_sample = net.sample_x(n_samples=10)        
-            helper.vis_samples_np(image_reconst.detach().numpy(), sample_dir='/Users/mev/samples_from_schur/reconst/', prefix='reconst')
-            helper.vis_samples_np(image_sample.detach().numpy(), sample_dir='/Users/mev/samples_from_schur/network/', prefix='network')
+            image_sample = net.sample_x(n_samples=10)            
+            helper.vis_samples_np(image_reconst.detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/reconst/', prefix='reconst')
+            helper.vis_samples_np(image_sample.detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/network/', prefix='network')
 
             print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 2000:.5f}')
             running_loss = 0.0
