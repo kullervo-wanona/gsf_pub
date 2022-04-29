@@ -149,7 +149,7 @@ class Net4(torch.nn.Module):
         conv_log_dets, nonlin_logdets = [], []
         
         curr_inp = x
-        # curr_inp, logit_logdet = self.logit_with_logdet(x) 
+        curr_inp, logit_logdet = self.logit_with_logdet(curr_inp) 
         # trace()       
         # print(curr_inp.shape)
         for layer_id, k in enumerate(self.k_list):
@@ -176,7 +176,7 @@ class Net4(torch.nn.Module):
         conv_log_dets_sum = sum(conv_log_dets)
 
         log_det = conv_log_dets_sum + nonlin_logdets_sum
-        # log_det += logit_logdet
+        log_det += logit_logdet
         log_pdf_y = self.compute_normal_log_pdf(y)
         log_pdf_x = log_pdf_y + log_det
         # print('conv_log_dets_sum:', conv_log_dets_sum)
@@ -204,7 +204,7 @@ class Net4(torch.nn.Module):
             nonlin_out = curr_inp
         # print(curr_inp.shape)
 
-        # x = torch.sigmoid(nonlin_out)
+        x = torch.sigmoid(nonlin_out)
         x = nonlin_out
         return x
 
