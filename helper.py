@@ -21,6 +21,11 @@ def cuda(x):
     if torch.cuda.is_available() and CUDA_FLAG and not x.is_cuda: return x.to(device='cuda')
     else: return x
 
+def cpu(x):
+    global CUDA_FLAG
+    if torch.cuda.is_available() and CUDA_FLAG and x.is_cuda: return x.cpu()
+    else: return x
+
 def display(mat, rescale=False):
     if rescale: mat = (mat-mat.min())/(mat.max()-mat.min())
     plt.imshow(np.clip(mat, 0, 1), interpolation='nearest')
