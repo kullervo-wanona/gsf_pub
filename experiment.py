@@ -9,6 +9,7 @@ else:
     trace = ipdb.set_trace
 
 import time
+from pathlib import Path
 from PIL import Image
 from matplotlib import pyplot as plt
 
