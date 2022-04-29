@@ -106,7 +106,7 @@ class Net4(torch.nn.Module):
         y_logdet = (-torch.log(x_safe)-torch.log(1-x_safe)).sum(axis=[1, 2, 3])
         return y, y_logdet
 
-    def leaky_relu_with_logdet(self, x, pos_slope=1.1, neg_slope=0.9):
+    def leaky_relu_with_logdet(self, x, pos_slope=1.2, neg_slope=0.8):
         x_pos = torch.relu(x)
         x_neg = x-x_pos
         y = pos_slope*x_pos+neg_slope*x_neg
