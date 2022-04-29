@@ -178,7 +178,7 @@ for epoch in range(10):
         optimizer.step()
 
         running_loss += loss.item()
-        if i % 300 == 0:
+        if i % 1000 == 0:
             image_reconst = net.inverse(latent)
             image_sample = net.sample_x(n_samples=10)            
             helper.vis_samples_np(image_reconst.detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/reconst/', prefix='reconst')
