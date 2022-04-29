@@ -205,7 +205,7 @@ class Net4(torch.nn.Module):
         x = torch.sigmoid(nonlin_out)
         return x
 
-net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[3, 3, 3, 3, 4], squeeze_list=[0, 1, 1, 0, 0])
+net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[3, 3, 2, 2, 2], squeeze_list=[0, 1, 1, 0, 0])
 criterion = torch.nn.CrossEntropyLoss()
 
 n_param = 0 
