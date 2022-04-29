@@ -100,6 +100,13 @@ class Net4(torch.nn.Module):
         x = x.reshape(B, C//4, H*2, W*2)
         return x
 
+    def logit_with_logdet(self, x):
+        x_safe = 0.0005+x*0.999
+        y = torch.log(x_safe)-torch.log(1-x_safe)
+        y_deriv = 1/x_safe-1/(1-x_safe)
+        y_logdet = torch.log(y_deriv).sum(axis=[1, 2, 3])
+        return y, y_logdet
+
     def leaky_relu_with_logdet(self, x, pos_slope=1.1, neg_slope=0.9):
         x_pos = torch.relu(x)
         x_neg = x-x_pos
@@ -142,7 +149,7 @@ class Net4(torch.nn.Module):
     def forward(self, x):
         conv_log_dets, nonlin_logdets = [], []
         
-        curr_inp = x
+        curr_inp, logit_logdet = self.logit_with_logdet(x)
         # print(curr_inp.shape)
         for layer_id, k in enumerate(self.k_list):
             for squeeze_i in range(self.squeeze_list[layer_id]):
@@ -167,7 +174,7 @@ class Net4(torch.nn.Module):
         nonlin_logdets_sum = sum(nonlin_logdets)
         conv_log_dets_sum = sum(conv_log_dets)
 
-        log_det = conv_log_dets_sum + nonlin_logdets_sum
+        log_det = conv_log_dets_sum + nonlin_logdets_sum + logit_logdet
         log_pdf_y = self.compute_normal_log_pdf(y)
         log_pdf_x = log_pdf_y + log_det
         # print('conv_log_dets_sum:', conv_log_dets_sum)
@@ -195,7 +202,7 @@ class Net4(torch.nn.Module):
             nonlin_out = curr_inp
         # print(curr_inp.shape)
 
-        x = nonlin_out
+        x = torch.sigmoid(nonlin_out)
         return x
 
 net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[3, 3, 3, 3, 4], squeeze_list=[0, 1, 1, 0, 0])
@@ -216,7 +223,7 @@ for epoch in range(10):
 
     data_loader.setup('Training', randomized=True, verbose=True)
     for i, curr_batch_size, batch_np in data_loader:     
-        image = helper.cuda(torch.from_numpy(batch_np['Image']))-0.5
+        image = helper.cuda(torch.from_numpy(batch_np['Image']))
 
         optimizer.zero_grad() # zero the parameter gradients
 
