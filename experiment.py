@@ -148,7 +148,9 @@ class Net4(torch.nn.Module):
     def forward(self, x):
         conv_log_dets, nonlin_logdets = [], []
         
-        curr_inp, logit_logdet = self.logit_with_logdet(x)        
+        curr_inp = x
+        # curr_inp, logit_logdet = self.logit_with_logdet(x) 
+        # trace()       
         # print(curr_inp.shape)
         for layer_id, k in enumerate(self.k_list):
             for squeeze_i in range(self.squeeze_list[layer_id]):
@@ -173,7 +175,8 @@ class Net4(torch.nn.Module):
         nonlin_logdets_sum = sum(nonlin_logdets)
         conv_log_dets_sum = sum(conv_log_dets)
 
-        log_det = conv_log_dets_sum + nonlin_logdets_sum + logit_logdet
+        log_det = conv_log_dets_sum + nonlin_logdets_sum
+        # log_det += logit_logdet
         log_pdf_y = self.compute_normal_log_pdf(y)
         log_pdf_x = log_pdf_y + log_det
         # print('conv_log_dets_sum:', conv_log_dets_sum)
@@ -201,7 +204,8 @@ class Net4(torch.nn.Module):
             nonlin_out = curr_inp
         # print(curr_inp.shape)
 
-        x = torch.sigmoid(nonlin_out)
+        # x = torch.sigmoid(nonlin_out)
+        x = nonlin_out
         return x
 
 # net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[5, 5, 5, 4, 4, 4, 2, 2, 2], squeeze_list=[0, 1, 0, 0, 0, 0, 0, 0, 0])
