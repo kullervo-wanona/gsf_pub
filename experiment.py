@@ -212,8 +212,8 @@ for e in net.parameters():
     print(e.shape)
     n_param += np.prod(e.shape)
 print('Total number of parameters: ' + str(n_param))
-# optimizer = torch.optim.Adam(net.parameters(), lr=0.001, betas=(0.5, 0.9), eps=1e-08)
-optimizer = torch.optim.Adam(net.parameters(), lr=0.0001, betas=(0.95, 0.999), eps=1e-08)
+optimizer = torch.optim.Adam(net.parameters(), lr=0.001, betas=(0.5, 0.9), eps=1e-08)
+# optimizer = torch.optim.Adam(net.parameters(), lr=0.0001, betas=(0.95, 0.999), eps=1e-08)
 
 helper.vis_samples_np(example_batch['Image'], sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/real/', prefix='real')
 
