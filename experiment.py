@@ -146,9 +146,14 @@ class Net4(torch.nn.Module):
         return x
 
 net = Net4(c=data_loader.image_size[1], n=data_loader.image_size[3], k_list=[3, 3, 4, 6, 8])
-
 criterion = torch.nn.CrossEntropyLoss()
-for e in net.parameters(): print(e.shape)
+
+n_param = 0 
+for e in net.parameters(): 
+    print(e.shape)
+    n_param += np.prod(e.shape)
+print('Total number of parameters: ' + str(n_param))
+trace()
 optimizer = torch.optim.Adam(net.parameters(), lr=0.001, betas=(0.5, 0.9), eps=1e-08)
 
 
