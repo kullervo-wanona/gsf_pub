@@ -278,8 +278,8 @@ class Net4(torch.nn.Module):
 
 # net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[5, 5, 5, 4, 4, 4, 2, 2, 2], squeeze_list=[0, 1, 0, 0, 0, 0, 0, 0, 0])
 # net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[4, 4, 4], squeeze_list=[0, 0, 0])
-# net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[3, 3, 4, 6, 8], squeeze_list=[0, 0, 0, 0, 0])
-net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[3, 3, 4, 4, 6, 6, 8], squeeze_list=[0, 0, 0, 0, 0, 0, 0])
+net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[3, 3, 4, 6, 8], squeeze_list=[0, 0, 0, 0, 0])
+# net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[3, 3, 4, 4, 6, 6, 8], squeeze_list=[0, 0, 0, 0, 0, 0, 0])
 criterion = torch.nn.CrossEntropyLoss()
 
 n_param = 0
@@ -363,12 +363,12 @@ for epoch in range(100):
 
         running_loss += loss.item()
         # if i % 10 == 0:
-        if i % 500 == 0:
+        if i % 200 == 0:
             image_reconst = net.inverse(latent, 'reconstructing from')
             image_sample = net.sample_x(n_samples=10)            
-            helper.vis_samples_np(helper.cpu(image).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/real/', prefix='real', resize=[256, 256])
-            helper.vis_samples_np(helper.cpu(image_reconst).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/reconst/', prefix='reconst', resize=[256, 256])
-            helper.vis_samples_np(helper.cpu(image_sample).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/network/', prefix='network', resize=[256, 256])
+            helper.vis_samples_np(helper.cpu(image).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/real/', prefix='real', resize=[512, 512])
+            helper.vis_samples_np(helper.cpu(image_reconst).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/reconst/', prefix='reconst', resize=[512, 512])
+            helper.vis_samples_np(helper.cpu(image_sample).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/network/', prefix='network', resize=[512, 512])
             # trace()
 
             print(f'[{epoch + 1}, {i + 1:5d}] loss: {loss.item()}')

@@ -184,9 +184,9 @@ for epoch in range(10):
         if i % 1000 == 0:
             image_reconst = net.inverse(latent)
             image_sample = net.sample_x(n_samples=10)            
-            helper.vis_samples_np(helper.cpu(image).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/real2/', prefix='real')
-            helper.vis_samples_np(helper.cpu(image_reconst).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/reconst2/', prefix='reconst')
-            helper.vis_samples_np(helper.cpu(image_sample).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/network2/', prefix='network')
+            helper.vis_samples_np(helper.cpu(image).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/real/', prefix='real', resize=[512, 512])
+            helper.vis_samples_np(helper.cpu(image_reconst).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/reconst/', prefix='reconst', resize=[512, 512])
+            helper.vis_samples_np(helper.cpu(image_sample).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/network/', prefix='network', resize=[512, 512])
 
             print(f'[{epoch + 1}, {i + 1:5d}] loss: {loss.item()}')
             running_loss = 0.0
