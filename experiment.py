@@ -91,8 +91,15 @@ class Net4(torch.nn.Module):
         
         self.c_out = curr_c
         self.n_out = curr_n
+        self.uniform_dist = torch.distributions.Uniform(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([1.0])))
         self.normal_dist = torch.distributions.Normal(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([1.0])))
         # self.normal_dist_delta = torch.distributions.Normal(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([0.2])))
+
+    def dequantize(self, x, quantization_levels=255.):
+        # https://arxiv.org/pdf/1511.01844.pdf
+        scale = 1/quantization_levels
+        uniform_sample = self.uniform_dist.sample(x.shape)
+        return x+scale*uniform_sample
 
     def squeeze(self, x):
         """Squeezes a C x H x W tensor into a 4C x H/2 x W/2 tensor.
@@ -200,7 +207,8 @@ class Net4(torch.nn.Module):
         unnormalized_x = (x-bias)/scale
         return unnormalized_x
 
-    def forward(self, x, until_layer_id=None, debug=False):
+    def forward(self, x, dequantize=False, until_layer_id=None, debug=False):
+        if dequantize: x = self.dequantize(x)
         if until_layer_id is not None: assert (until_layer_id <= self.n_conv_blocks)
         conv_log_dets, conv_mult_log_dets, nonlin_logdets, actnorm_logdets = [], [], [], []
         
@@ -368,7 +376,7 @@ for epoch in range(100):
 
         optimizer.zero_grad() # zero the parameter gradients
 
-        latent, log_pdf_image = net(image)
+        latent, log_pdf_image = net(image, dequantize=True)
         # assert (torch.abs(latent-image).max() > 0.1)
         # print(torch.abs(image_reconst-image).max())
         # assert (torch.abs(image_reconst-image).max() < 1e-3)
@@ -380,6 +388,7 @@ for epoch in range(100):
         running_loss += loss.item()
         # if i % 10 == 0:
         if i % 200 == 0:
+            latent, _ = net(image)
             image_reconst = net.inverse(latent, 'reconstructing from')
             image_sample = net.sample_x(n_samples=10)            
             helper.vis_samples_np(helper.cpu(image).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/real/', prefix='real', resize=[256, 256])
