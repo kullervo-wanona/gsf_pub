@@ -278,7 +278,8 @@ class Net4(torch.nn.Module):
 
 # net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[5, 5, 5, 4, 4, 4, 2, 2, 2], squeeze_list=[0, 1, 0, 0, 0, 0, 0, 0, 0])
 # net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[4, 4, 4], squeeze_list=[0, 0, 0])
-net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[3, 3, 4, 6, 8], squeeze_list=[0, 0, 0, 0, 0])
+# net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[3, 3, 4, 6, 8], squeeze_list=[0, 0, 0, 0, 0])
+net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[3, 3, 4, 4, 6, 6, 8], squeeze_list=[0, 0, 0, 0, 0, 0, 0])
 criterion = torch.nn.CrossEntropyLoss()
 
 n_param = 0
@@ -296,7 +297,7 @@ for layer_id in range(net.n_conv_blocks):
     n_examples = 0
     accum_mean = None
     for i, curr_batch_size, batch_np in data_loader:     
-        if i > 100: break
+        # if i > 100: break
 
         image = helper.cuda(torch.from_numpy(batch_np['Image']))
 
@@ -314,7 +315,7 @@ for layer_id in range(net.n_conv_blocks):
     n_examples = 0
     accum_var = None
     for i, curr_batch_size, batch_np in data_loader:  
-        if i > 100: break
+        # if i > 100: break
 
         image = helper.cuda(torch.from_numpy(batch_np['Image']))
 
@@ -343,7 +344,7 @@ for layer_id in range(net.n_conv_blocks):
 
 exp_t_start = time.time()
 running_loss = 0.0
-for epoch in range(10):
+for epoch in range(100):
 
     data_loader.setup('Training', randomized=True, verbose=True)
     for i, curr_batch_size, batch_np in data_loader:     
@@ -362,7 +363,7 @@ for epoch in range(10):
 
         running_loss += loss.item()
         # if i % 10 == 0:
-        if i % 100 == 0:
+        if i % 500 == 0:
             image_reconst = net.inverse(latent, 'reconstructing from')
             image_sample = net.sample_x(n_samples=10)            
             helper.vis_samples_np(helper.cpu(image).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/real/', prefix='real')
