@@ -291,13 +291,13 @@ print('Total number of parameters: ' + str(n_param))
 optimizer = torch.optim.Adam(net.parameters(), lr=0.0001, betas=(0.7, 0.9), eps=1e-08)
 
 for layer_id in range(net.n_conv_blocks):
-    data_loader.setup('Training', randomized=False, verbose=True)
+    data_loader.setup('Training', randomized=True, verbose=True)
     print('Layer: ' + str(layer_id) + ', mean computation.' )
 
     n_examples = 0
     accum_mean = None
     for i, curr_batch_size, batch_np in data_loader:     
-        # if i > 100: break
+        if i > 500: break
 
         image = helper.cuda(torch.from_numpy(batch_np['Image']))
 
@@ -309,13 +309,13 @@ for layer_id in range(net.n_conv_blocks):
         n_examples += input_to_layer_id.shape[0]
     mean = accum_mean/n_examples
 
-    data_loader.setup('Training', randomized=False, verbose=True)
+    data_loader.setup('Training', randomized=True, verbose=True)
     print('Layer: ' + str(layer_id) + ', std computation.' )
     
     n_examples = 0
     accum_var = None
     for i, curr_batch_size, batch_np in data_loader:  
-        # if i > 100: break
+        if i > 500: break
 
         image = helper.cuda(torch.from_numpy(batch_np['Image']))
 
