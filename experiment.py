@@ -366,9 +366,9 @@ for epoch in range(100):
         if i % 500 == 0:
             image_reconst = net.inverse(latent, 'reconstructing from')
             image_sample = net.sample_x(n_samples=10)            
-            helper.vis_samples_np(helper.cpu(image).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/real/', prefix='real')
-            helper.vis_samples_np(helper.cpu(image_reconst).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/reconst/', prefix='reconst')
-            helper.vis_samples_np(helper.cpu(image_sample).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/network/', prefix='network')
+            helper.vis_samples_np(helper.cpu(image).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/real/', prefix='real', resize=[256, 256])
+            helper.vis_samples_np(helper.cpu(image_reconst).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/reconst/', prefix='reconst', resize=[256, 256])
+            helper.vis_samples_np(helper.cpu(image_sample).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/network/', prefix='network', resize=[256, 256])
             # trace()
 
             print(f'[{epoch + 1}, {i + 1:5d}] loss: {loss.item()}')
