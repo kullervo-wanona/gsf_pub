@@ -65,16 +65,11 @@ class Net4(torch.nn.Module):
 
             _, iden_K = spatial_conv2D_lib.generate_identity_kernel(curr_c, curr_k, 'full', backend='numpy')
             rand_kernel_np = helper.get_conv_initial_weight_kernel_np([curr_k, curr_k], curr_c, curr_c, 'he_uniform')
-            curr_kernel_np = iden_K + 0.1*rand_kernel_np 
-            # curr_kernel_np = rand_kernel_np 
+            curr_kernel_np = iden_K + 0.001*rand_kernel_np 
             curr_conv_kernel_param = torch.nn.parameter.Parameter(data=helper.cuda(torch.tensor(curr_kernel_np, dtype=torch.float32)), requires_grad=True)
             setattr(self, 'conv_kernel_'+str(layer_id+1), curr_conv_kernel_param)
-            curr_conv_bias_param = torch.nn.parameter.Parameter(data=helper.cuda(torch.zeros((1, curr_c, curr_n, curr_n), dtype=torch.float32)), requires_grad=True)
-            # curr_conv_bias_param = torch.nn.parameter.Parameter(data=helper.cuda(torch.zeros((1, curr_c, 1, 1), dtype=torch.float32)), requires_grad=True)
-            # curr_conv_bias_param = torch.nn.parameter.Parameter(data=helper.cuda(torch.zeros((curr_c), dtype=torch.float32)), requires_grad=True)
+            curr_conv_bias_param = torch.nn.parameter.Parameter(data=helper.cuda(torch.zeros((curr_c), dtype=torch.float32)), requires_grad=True)
             setattr(self, 'conv_bias_'+str(layer_id+1), curr_conv_bias_param)
-            curr_conv_log_mult_param = torch.nn.parameter.Parameter(data=helper.cuda(torch.zeros((1, curr_c, curr_n, curr_n), dtype=torch.float32)), requires_grad=True)
-            setattr(self, 'conv_log_mult_'+str(layer_id+1), curr_conv_log_mult_param)
 
             if self.actnorm_layers:
                 curr_actnorm_bias_np = np.zeros([1, curr_c, 1, 1])
@@ -119,15 +114,15 @@ class Net4(torch.nn.Module):
     #     x = x.reshape(B, C//4, H*2, W*2)
     #     return x
 
-    def logit_with_logdet(self, x, scale=0.1):
-        x_safe = 0.005+x*0.99
-        y = scale*(torch.log(x_safe)-torch.log(1-x_safe))
-        y_logdet = np.prod(x_safe.shape[1:])*np.log(scale)+(-torch.log(x_safe)-torch.log(1-x_safe)).sum(axis=[1, 2, 3])
+    def logit_with_logdet(self, x):
+        x_safe = 0.0005+x*0.999
+        y = torch.log(x_safe)-torch.log(1-x_safe)
+        y_logdet = (-torch.log(x_safe)-torch.log(1-x_safe)).sum(axis=[1, 2, 3])
         return y, y_logdet
 
-    def inverse_logit(self, y, scale=0.1):
-        x_safe = torch.sigmoid(y/scale)
-        x = (x_safe-0.005)/0.99
+    def inverse_logit(self, y):
+        x_safe = torch.sigmoid(y)
+        x = (x_safe-0.0005)/0.999
         return x
 
 
@@ -154,7 +149,6 @@ class Net4(torch.nn.Module):
     #     return y, y_logdet
 
     # def inverse_tanh(self, y):
-    #     y = torch.clamp(y, min=-0.98, max=0.98)
     #     return 0.5*(torch.log(1+y+1e-4)-torch.log(1-y+1e-4))
 
     def compute_conv_logdet_from_K(self, layer_id):
@@ -169,14 +163,13 @@ class Net4(torch.nn.Module):
         # return self.normal_dist_delta.sample([n_samples, self.c_out, self.n_out, self.n_out])[..., 0]
 
     def sample_x(self, n_samples=10):
-        return self.inverse(self.sample_y(n_samples), 'sampling from')
+        return self.inverse(self.sample_y(n_samples))
 
     def actnorm_with_logdet(self, x, layer_id):
         bias = getattr(self, 'actnorm_bias_'+str(layer_id+1))
         log_scale = getattr(self, 'actnorm_log_scale_'+str(layer_id+1))
         scale = torch.exp(log_scale)
         normalized_x = x*scale+bias
-
         logdet = (x.shape[-1]**2)*log_scale.sum()
         return normalized_x, logdet
 
@@ -187,9 +180,9 @@ class Net4(torch.nn.Module):
         unnormalized_x = (x-bias)/scale
         return unnormalized_x
 
-    def forward(self, x, until_layer_id=None, debug=False):
+    def forward(self, x, until_layer_id=None):
         if until_layer_id is not None: assert (until_layer_id <= self.n_conv_blocks)
-        conv_log_dets, conv_mult_log_dets, nonlin_logdets, actnorm_logdets = [], [], [], []
+        conv_log_dets, nonlin_logdets, actnorm_logdets = [], [], []
         
         curr_inp, logit_logdet = x, 0
         if self.logit_layer: curr_inp, logit_logdet = self.logit_with_logdet(curr_inp)
@@ -205,16 +198,9 @@ class Net4(torch.nn.Module):
                 curr_inp, actnorm_logdet = self.actnorm_with_logdet(curr_inp, layer_id)
                 actnorm_logdets.append(actnorm_logdet)
             
-            # conv_out = spatial_conv2D_lib.spatial_circular_conv2D_th(
-            #     curr_inp, getattr(self, 'conv_kernel_'+str(layer_id+1)), 
-            #     bias=getattr(self, 'conv_bias_'+str(layer_id+1)))
-
-            conv_out = spatial_conv2D_lib.spatial_circular_conv2D_th(curr_inp, getattr(self, 'conv_kernel_'+str(layer_id+1)))
-
-            conv_out = conv_out * torch.exp(getattr(self, 'conv_log_mult_'+str(layer_id+1)))
-            conv_out = conv_out + getattr(self, 'conv_bias_'+str(layer_id+1))
-            conv_mult_log_dets.append(getattr(self, 'conv_log_mult_'+str(layer_id+1)).sum())
-
+            conv_out = spatial_conv2D_lib.spatial_circular_conv2D_th(
+                curr_inp, getattr(self, 'conv_kernel_'+str(layer_id+1)), 
+                bias=getattr(self, 'conv_bias_'+str(layer_id+1)))
             # print(conv_out.max(), conv_out.mean(), conv_out.min())
 
             conv_log_det = self.compute_conv_logdet_from_K(layer_id)
@@ -231,11 +217,8 @@ class Net4(torch.nn.Module):
         actnorm_logdets_sum = sum(actnorm_logdets)
         nonlin_logdets_sum = sum(nonlin_logdets)
         conv_log_dets_sum = sum(conv_log_dets)
-        conv_mult_log_dets_sum = sum(conv_mult_log_dets)
 
-        if debug: trace()
-
-        log_det = logit_logdet+conv_log_dets_sum+nonlin_logdets_sum+actnorm_logdets_sum+conv_mult_log_dets_sum
+        log_det = logit_logdet+conv_log_dets_sum+nonlin_logdets_sum+actnorm_logdets_sum
         log_pdf_y = self.compute_normal_log_pdf(y)
         log_pdf_x = log_pdf_y + log_det
         # print('conv_log_dets_sum:', conv_log_dets_sum)
@@ -244,7 +227,7 @@ class Net4(torch.nn.Module):
         # trace()
         return y, log_pdf_x
 
-    def inverse(self, y, mess=''):
+    def inverse(self, y):
         y = y.detach()
         nonlin_out = y
         for layer_id in list(range(len(self.k_list)))[::-1]:
@@ -254,14 +237,7 @@ class Net4(torch.nn.Module):
             else: conv_out = nonlin_out 
             # print(conv_out.min(), conv_out.max())
 
-            conv_out = conv_out - getattr(self, 'conv_bias_'+str(layer_id+1))
-            conv_out = conv_out / torch.exp(getattr(self, 'conv_log_mult_'+str(layer_id+1)))
-
-            # print('\n' + mess + '\n')
-            # print(conv_out.max(), conv_out.mean(), conv_out.min())
-
-            curr_inp = frequency_conv2D_lib.frequency_inverse_circular_conv2D(conv_out, getattr(self, 'conv_kernel_'+str(layer_id+1)), 'full', mode='complex', backend='torch')
-            # curr_inp = frequency_conv2D_lib.frequency_inverse_circular_conv2D(conv_out-getattr(self, 'conv_bias_'+str(layer_id+1))[np.newaxis, :, np.newaxis, np.newaxis], getattr(self, 'conv_kernel_'+str(layer_id+1)), 'full', mode='complex', backend='torch')
+            curr_inp = frequency_conv2D_lib.frequency_inverse_circular_conv2D(conv_out-getattr(self, 'conv_bias_'+str(layer_id+1))[np.newaxis, :, np.newaxis, np.newaxis], getattr(self, 'conv_kernel_'+str(layer_id+1)), 'full', mode='complex', backend='torch')
             # print(curr_inp.min(), curr_inp.max())
             if self.actnorm_layers: 
                 curr_inp = self.inverse_actnorm(curr_inp, layer_id)
@@ -281,13 +257,15 @@ class Net4(torch.nn.Module):
 net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[3, 3, 4, 6, 8], squeeze_list=[0, 0, 0, 0, 0])
 criterion = torch.nn.CrossEntropyLoss()
 
-n_param = 0
+n_param = 0 
 for e in net.parameters():
     print(e.shape)
     n_param += np.prod(e.shape)
 print('Total number of parameters: ' + str(n_param))
-# optimizer = torch.optim.Adam(net.parameters(), lr=0.001, betas=(0.5, 0.9), eps=1e-08)
-optimizer = torch.optim.Adam(net.parameters(), lr=0.0001, betas=(0.7, 0.9), eps=1e-08)
+optimizer = torch.optim.Adam(net.parameters(), lr=0.001, betas=(0.5, 0.9), eps=1e-08)
+# optimizer = torch.optim.Adam(net.parameters(), lr=0.0001, betas=(0.95, 0.999), eps=1e-08)
+
+helper.vis_samples_np(example_batch['Image'], sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/real/', prefix='real')
 
 for layer_id in range(net.n_conv_blocks):
     data_loader.setup('Training', randomized=False, verbose=True)
@@ -296,7 +274,7 @@ for layer_id in range(net.n_conv_blocks):
     n_examples = 0
     accum_mean = None
     for i, curr_batch_size, batch_np in data_loader:     
-        if i > 100: break
+        if i > 400: break
 
         image = helper.cuda(torch.from_numpy(batch_np['Image']))
 
@@ -314,7 +292,7 @@ for layer_id in range(net.n_conv_blocks):
     n_examples = 0
     accum_var = None
     for i, curr_batch_size, batch_np in data_loader:  
-        if i > 100: break
+        if i > 400: break
 
         image = helper.cuda(torch.from_numpy(batch_np['Image']))
 
@@ -324,13 +302,12 @@ for layer_id in range(net.n_conv_blocks):
         if accum_var is None: accum_var = curr_var
         else: accum_var += curr_var
         n_examples += input_to_layer_id.shape[0]
-
     var = accum_var/n_examples
     log_std = np.log(np.sqrt(var))
     scale = 1/(np.exp(log_std)+0.001)
     log_scale = np.log(scale)
     bias = -mean*scale
-    
+
     curr_actnorm_bias_var = getattr(net, 'actnorm_bias_'+str(layer_id+1))
     curr_actnorm_log_scale_var = getattr(net, 'actnorm_log_scale_'+str(layer_id+1))
     curr_actnorm_bias_var.data = torch.from_numpy(bias[np.newaxis, :, np.newaxis, np.newaxis].astype(np.float32))
@@ -361,22 +338,15 @@ for epoch in range(10):
         optimizer.step()
 
         running_loss += loss.item()
-        # if i % 10 == 0:
         if i % 100 == 0:
-            image_reconst = net.inverse(latent, 'reconstructing from')
+            image_reconst = net.inverse(latent)
             image_sample = net.sample_x(n_samples=10)            
             helper.vis_samples_np(helper.cpu(image).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/real/', prefix='real')
             helper.vis_samples_np(helper.cpu(image_reconst).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/reconst/', prefix='reconst')
             helper.vis_samples_np(helper.cpu(image_sample).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/network/', prefix='network')
-            # trace()
 
             print(f'[{epoch + 1}, {i + 1:5d}] loss: {loss.item()}')
             running_loss = 0.0
-
-            # print(getattr(net, 'conv_kernel_1'))
-            # print(getattr(net, 'conv_kernel_2'))
-            # print(getattr(net, 'conv_kernel_3'))
-
 
 print('Experiment took '+str(time.time()-exp_t_start)+' seconds.')
 print('Finished Training')

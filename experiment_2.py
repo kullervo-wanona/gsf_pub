@@ -57,6 +57,10 @@ class Net4(torch.nn.Module):
 
         self.K_to_schur_log_determinant_funcs = {(k, self.n): 
             spectral_schur_det_lib.generate_kernel_to_schur_log_determinant(k, self.n, backend='torch') for k in self.k_list}
+        
+        for (ks, ns) in self.K_to_schur_log_determinant_funcs:
+            print(ks, ns)
+
         self.normal_dist = torch.distributions.Normal(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([1.0])))
         self.normal_dist_delta = torch.distributions.Normal(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([0.2])))
 
@@ -70,7 +74,7 @@ class Net4(torch.nn.Module):
         y_logdet = torch.log(y_deriv).sum(axis=[1, 2, 3])
         return y, y_logdet
     
-    def inverse_leaky_relu(self, y, pos_slope=1., neg_slope=0.7):
+    def inverse_leaky_relu(self, y, pos_slope=1.1, neg_slope=0.9):
         y_pos = torch.relu(y)
         y_neg = y-y_pos
         x = (1/pos_slope)*y_pos+(1/neg_slope)*y_neg
@@ -86,7 +90,7 @@ class Net4(torch.nn.Module):
         return 0.5*(torch.log(1+y+1e-4)-torch.log(1-y+1e-4))
 
     def compute_conv_logdet_from_K(self, K):
-        return self.K_to_schur_log_determinant_funcs[K.shape[-1], self.n](K)
+        return self.K_to_schur_log_determinant_funcs[(K.shape[-1], self.n)](K)
 
     def compute_normal_log_pdf(self, y):
         return self.normal_dist.log_prob(y).sum(axis=[1, 2, 3])
@@ -156,8 +160,6 @@ for e in net.parameters():
 print('Total number of parameters: ' + str(n_param))
 optimizer = torch.optim.Adam(net.parameters(), lr=0.001, betas=(0.5, 0.9), eps=1e-08)
 
-helper.vis_samples_np(example_batch['Image'], sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/real/', prefix='real')
-
 exp_t_start = time.time()
 running_loss = 0.0
 for epoch in range(10):
@@ -182,10 +184,11 @@ for epoch in range(10):
         if i % 1000 == 0:
             image_reconst = net.inverse(latent)
             image_sample = net.sample_x(n_samples=10)            
-            helper.vis_samples_np(helper.cpu(image_reconst).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/reconst/', prefix='reconst')
-            helper.vis_samples_np(helper.cpu(image_sample).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/network/', prefix='network')
+            helper.vis_samples_np(helper.cpu(image).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/real2/', prefix='real')
+            helper.vis_samples_np(helper.cpu(image_reconst).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/reconst2/', prefix='reconst')
+            helper.vis_samples_np(helper.cpu(image_sample).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/network2/', prefix='network')
 
-            print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 2000:.5f}')
+            print(f'[{epoch + 1}, {i + 1:5d}] loss: {loss.item()}')
             running_loss = 0.0
 
 print('Experiment took '+str(time.time()-exp_t_start)+' seconds.')
