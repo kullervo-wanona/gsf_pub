@@ -278,8 +278,8 @@ class Net4(torch.nn.Module):
 
 # net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[5, 5, 5, 4, 4, 4, 2, 2, 2], squeeze_list=[0, 1, 0, 0, 0, 0, 0, 0, 0])
 # net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[4, 4, 4], squeeze_list=[0, 0, 0])
-net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[3, 3, 4, 6, 8], squeeze_list=[0, 0, 0, 0, 0])
-# net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[3, 3, 4, 4, 6, 6, 8], squeeze_list=[0, 0, 0, 0, 0, 0, 0])
+# net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[3, 3, 4, 6, 8], squeeze_list=[0, 0, 0, 0, 0])
+net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[3, 3, 4, 4, 6, 6, 8], squeeze_list=[0, 0, 0, 0, 0, 0, 0])
 criterion = torch.nn.CrossEntropyLoss()
 
 n_param = 0
@@ -288,7 +288,7 @@ for e in net.parameters():
     n_param += np.prod(e.shape)
 print('Total number of parameters: ' + str(n_param))
 # optimizer = torch.optim.Adam(net.parameters(), lr=0.001, betas=(0.5, 0.9), eps=1e-08)
-optimizer = torch.optim.Adam(net.parameters(), lr=0.0001, betas=(0.7, 0.9), eps=1e-08)
+optimizer = torch.optim.Adam(net.parameters(), lr=0.0001, betas=(0.9, 0.95), eps=1e-08)
 
 for layer_id in range(net.n_conv_blocks):
     data_loader.setup('Training', randomized=True, verbose=True)
