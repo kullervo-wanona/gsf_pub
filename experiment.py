@@ -334,8 +334,8 @@ for layer_id in range(net.n_conv_blocks):
     
     curr_actnorm_bias_var = getattr(net, 'actnorm_bias_'+str(layer_id+1))
     curr_actnorm_log_scale_var = getattr(net, 'actnorm_log_scale_'+str(layer_id+1))
-    curr_actnorm_bias_var.data = torch.from_numpy(bias[np.newaxis, :, np.newaxis, np.newaxis].astype(np.float32))
-    curr_actnorm_log_scale_var.data = torch.from_numpy(log_scale[np.newaxis, :, np.newaxis, np.newaxis].astype(np.float32))
+    curr_actnorm_bias_var.data = helper.cuda(torch.from_numpy(bias[np.newaxis, :, np.newaxis, np.newaxis].astype(np.float32)))
+    curr_actnorm_log_scale_var.data = helper.cuda(torch.from_numpy(log_scale[np.newaxis, :, np.newaxis, np.newaxis].astype(np.float32)))
 
     # normalized = input_to_layer_id*np.exp(log_scale[np.newaxis, :, np.newaxis, np.newaxis])+bias[np.newaxis, :, np.newaxis, np.newaxis]
     # print('Mean after normalization: ', normalized.mean(axis=(0, 2, 3)))
