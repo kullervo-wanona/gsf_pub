@@ -50,7 +50,9 @@ def vis_samples_np(samples, sample_dir, prefix=None, resize=None):
         path = sample_dir + 'sample_' 
         if prefix is not None: path += prefix + '_'
         path += str(i) + '.png' 
-        save_image(np.transpose(samples[i], [1, 2, 0]), path, rescale=False, resize=resize)
+        if samples[i].shape[0] == 1: curr_sample = np.transpose(np.concatenate([samples[i], samples[i], samples[i]], axis=0), [1, 2, 0])
+        else: curr_sample = np.transpose(samples[i], [1, 2, 0])
+        save_image(curr_sample, path, rescale=False, resize=resize)
         
 def vectorize(tensor):
     # vectorize last d-1 dims, column indeces together (entire row), then row indices (entire channel), then channel indices (entire image)

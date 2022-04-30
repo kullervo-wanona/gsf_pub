@@ -30,8 +30,8 @@ from multi_channel_invertible_conv_lib import frequency_conv2D_lib
 # data_loader.setup('Test', randomized=False, verbose=False)
 # _, _, batch = next(data_loader)
 
-# from DataLoaders.MNIST.MNISTLoader import DataLoader
-from DataLoaders.CelebA.CelebA32Loader import DataLoader
+from DataLoaders.MNIST.MNISTLoader import DataLoader
+# from DataLoaders.CelebA.CelebA32Loader import DataLoader
 data_loader = DataLoader(batch_size=10)
 data_loader.setup('Training', randomized=True, verbose=True)
 # data_loader.setup('Test', randomized=True, verbose=True)
@@ -40,7 +40,7 @@ _, _, example_batch = next(data_loader)
 
 
 class Net4(torch.nn.Module):
-    def __init__(self, c_in, n_in, k_list, squeeze_list, logit_layer=True, actnorm_layers=True, squeeze_layers=False):
+    def __init__(self, c_in, n_in, k_list, squeeze_list, logit_layer=True, actnorm_layers=True, squeeze_layers=True):
         super().__init__()
         self.n_in = n_in
         self.c_in = c_in
@@ -53,14 +53,14 @@ class Net4(torch.nn.Module):
         self.squeeze_layers = squeeze_layers
 
         self.K_to_schur_log_determinant_funcs = []
-        # accum_squeeze = 0
+        accum_squeeze = 0
         for layer_id, curr_k in enumerate(self.k_list):
             curr_c = self.c_in
             curr_n = self.n_in
-            # if self.squeeze_layers:
-            #     accum_squeeze += self.squeeze_list[layer_id]
-            #     curr_c = self.c_in*(4**accum_squeeze)
-            #     curr_n = self.n_in//(2**accum_squeeze)
+            if self.squeeze_layers:
+                accum_squeeze += self.squeeze_list[layer_id]
+                curr_c = self.c_in*(4**accum_squeeze)
+                curr_n = self.n_in//(2**accum_squeeze)
             print(curr_c, (curr_n, curr_n), curr_c*curr_n*curr_n)
 
             _, iden_K = spatial_conv2D_lib.generate_identity_kernel(curr_c, curr_k, 'full', backend='numpy')
@@ -73,8 +73,11 @@ class Net4(torch.nn.Module):
             # curr_conv_bias_param = torch.nn.parameter.Parameter(data=helper.cuda(torch.zeros((1, curr_c, 1, 1), dtype=torch.float32)), requires_grad=True)
             # curr_conv_bias_param = torch.nn.parameter.Parameter(data=helper.cuda(torch.zeros((curr_c), dtype=torch.float32)), requires_grad=True)
             setattr(self, 'conv_bias_'+str(layer_id+1), curr_conv_bias_param)
-            curr_conv_log_mult_param = torch.nn.parameter.Parameter(data=helper.cuda(torch.zeros((1, curr_c, curr_n, curr_n), dtype=torch.float32)), requires_grad=True)
-            setattr(self, 'conv_log_mult_'+str(layer_id+1), curr_conv_log_mult_param)
+            # curr_conv_log_mult_param = torch.nn.parameter.Parameter(data=helper.cuda(torch.zeros((1, curr_c, curr_n, curr_n), dtype=torch.float32)), requires_grad=True)
+            # setattr(self, 'conv_log_mult_'+str(layer_id+1), curr_conv_log_mult_param)
+
+            curr_slog_log_alpha_param = torch.nn.parameter.Parameter(data=helper.cuda(torch.zeros((1, curr_c, 1, 1), dtype=torch.float32)), requires_grad=True)
+            setattr(self, 'slog_log_alpha_'+str(layer_id+1), curr_slog_log_alpha_param)
 
             if self.actnorm_layers:
                 curr_actnorm_bias_np = np.zeros([1, curr_c, 1, 1])
@@ -91,33 +94,33 @@ class Net4(torch.nn.Module):
         self.normal_dist = torch.distributions.Normal(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([1.0])))
         # self.normal_dist_delta = torch.distributions.Normal(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([0.2])))
 
-    # def squeeze(self, x):
-    #     """Squeezes a C x H x W tensor into a 4C x H/2 x W/2 tensor.
-    #     (See Fig 3 in the real NVP paper.)
-    #     Args:
-    #         x: input tensor (B x C x H x W).
-    #     Returns:
-    #         the squeezed tensor (B x 4C x H/2 x W/2).
-    #     """
-    #     [B, C, H, W] = list(x.size())
-    #     x = x.reshape(B, C, H//2, 2, W//2, 2)
-    #     x = x.permute(0, 1, 3, 5, 2, 4)
-    #     x = x.reshape(B, C*4, H//2, W//2)
-    #     return x
+    def squeeze(self, x):
+        """Squeezes a C x H x W tensor into a 4C x H/2 x W/2 tensor.
+        (See Fig 3 in the real NVP paper.)
+        Args:
+            x: input tensor (B x C x H x W).
+        Returns:
+            the squeezed tensor (B x 4C x H/2 x W/2).
+        """
+        [B, C, H, W] = list(x.size())
+        x = x.reshape(B, C, H//2, 2, W//2, 2)
+        x = x.permute(0, 1, 3, 5, 2, 4)
+        x = x.reshape(B, C*4, H//2, W//2)
+        return x
 
-    # def undo_squeeze(self, x):
-    #     """unsqueezes a C x H x W tensor into a C/4 x 2H x 2W tensor.
-    #     (See Fig 3 in the real NVP paper.)
-    #     Args:
-    #         x: input tensor (B x C x H x W).
-    #     Returns:
-    #         the squeezed tensor (B x C/4 x 2H x 2W).
-    #     """
-    #     [B, C, H, W] = list(x.size())
-    #     x = x.reshape(B, C//4, 2, 2, H, W)
-    #     x = x.permute(0, 1, 4, 2, 5, 3)
-    #     x = x.reshape(B, C//4, H*2, W*2)
-    #     return x
+    def undo_squeeze(self, x):
+        """unsqueezes a C x H x W tensor into a C/4 x 2H x 2W tensor.
+        (See Fig 3 in the real NVP paper.)
+        Args:
+            x: input tensor (B x C x H x W).
+        Returns:
+            the squeezed tensor (B x C/4 x 2H x 2W).
+        """
+        [B, C, H, W] = list(x.size())
+        x = x.reshape(B, C//4, 2, 2, H, W)
+        x = x.permute(0, 1, 4, 2, 5, 3)
+        x = x.reshape(B, C//4, H*2, W*2)
+        return x
 
     def logit_with_logdet(self, x, scale=0.1):
         x_safe = 0.005+x*0.99
@@ -130,6 +133,16 @@ class Net4(torch.nn.Module):
         x = (x_safe-0.005)/0.99
         return x
 
+    def slog_gate_with_logit(self, x, log_alpha):
+        alpha = torch.exp(log_alpha)
+        y = (torch.sign(x)/alpha)*torch.log(1+alpha*torch.abs(x))
+        y_logdet = (-alpha*torch.abs(y)).sum(axis=[1, 2, 3])
+        return y, y_logdet
+
+    def inverse_slog_gat(self, y, log_alpha):
+        alpha = torch.exp(log_alpha)
+        x = (torch.sign(y)/alpha)*(torch.exp(alpha*torch.abs(y))-1)
+        return x
 
     def leaky_relu_with_logdet(self, x, pos_slope=1.2, neg_slope=0.8):
         x_pos = torch.relu(x)
@@ -195,11 +208,11 @@ class Net4(torch.nn.Module):
         if self.logit_layer: curr_inp, logit_logdet = self.logit_with_logdet(curr_inp)
 
         for layer_id, k in enumerate(self.k_list):
-            # for squeeze_i in range(self.squeeze_list[layer_id]):
-            #     curr_inp = self.squeeze(curr_inp)
+            for squeeze_i in range(self.squeeze_list[layer_id]):
+                curr_inp = self.squeeze(curr_inp)
 
-            # if until_layer_id is not None and layer_id >= until_layer_id:
-            #     break
+            if until_layer_id is not None and layer_id >= until_layer_id:
+                break
 
             if self.actnorm_layers: 
                 curr_inp, actnorm_logdet = self.actnorm_with_logdet(curr_inp, layer_id)
@@ -211,9 +224,9 @@ class Net4(torch.nn.Module):
 
             conv_out = spatial_conv2D_lib.spatial_circular_conv2D_th(curr_inp, getattr(self, 'conv_kernel_'+str(layer_id+1)))
 
-            conv_out = conv_out * torch.exp(getattr(self, 'conv_log_mult_'+str(layer_id+1)))
+            # conv_out = conv_out * torch.exp(getattr(self, 'conv_log_mult_'+str(layer_id+1)))
             conv_out = conv_out + getattr(self, 'conv_bias_'+str(layer_id+1))
-            conv_mult_log_dets.append(getattr(self, 'conv_log_mult_'+str(layer_id+1)).sum())
+            # conv_mult_log_dets.append(getattr(self, 'conv_log_mult_'+str(layer_id+1)).sum())
 
             # print(conv_out.max(), conv_out.mean(), conv_out.min())
 
@@ -221,7 +234,8 @@ class Net4(torch.nn.Module):
             conv_log_dets.append(conv_log_det)
             if layer_id < len(self.k_list)-1:
                 # nonlin_out, nonlin_logdet = self.tanh_with_logdet(conv_out)
-                nonlin_out, nonlin_logdet = self.leaky_relu_with_logdet(conv_out)
+                # nonlin_out, nonlin_logdet = self.leaky_relu_with_logdet(conv_out)
+                nonlin_out, nonlin_logdet = self.slog_gate_with_logit(conv_out, getattr(self, 'slog_log_alpha_'+str(layer_id+1)))
                 nonlin_logdets.append(nonlin_logdet)
                 curr_inp = nonlin_out
             else:
@@ -251,11 +265,12 @@ class Net4(torch.nn.Module):
             if layer_id < len(self.k_list)-1:
                 # conv_out = self.inverse_tanh(nonlin_out)
                 conv_out = self.inverse_leaky_relu(nonlin_out)
+                conv_out = self.inverse_slog_gat(nonlin_out, getattr(self, 'slog_log_alpha_'+str(layer_id+1)))
             else: conv_out = nonlin_out 
             # print(conv_out.min(), conv_out.max())
 
             conv_out = conv_out - getattr(self, 'conv_bias_'+str(layer_id+1))
-            conv_out = conv_out / torch.exp(getattr(self, 'conv_log_mult_'+str(layer_id+1)))
+            # conv_out = conv_out / torch.exp(getattr(self, 'conv_log_mult_'+str(layer_id+1)))
 
             # print('\n' + mess + '\n')
             # print(conv_out.max(), conv_out.mean(), conv_out.min())
@@ -267,8 +282,8 @@ class Net4(torch.nn.Module):
                 curr_inp = self.inverse_actnorm(curr_inp, layer_id)
 
             # print(curr_inp.shape)
-            # for squeeze_i in range(self.squeeze_list[layer_id]):
-            #     curr_inp = self.undo_squeeze(curr_inp)
+            for squeeze_i in range(self.squeeze_list[layer_id]):
+                curr_inp = self.undo_squeeze(curr_inp)
             nonlin_out = curr_inp
         # print(curr_inp.shape)
 
@@ -276,11 +291,12 @@ class Net4(torch.nn.Module):
         if self.logit_layer: x = self.inverse_logit(x)
         return x
 
-# net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[5, 5, 5, 4, 4, 4, 2, 2, 2], squeeze_list=[0, 1, 0, 0, 0, 0, 0, 0, 0])
-# net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[4, 4, 4], squeeze_list=[0, 0, 0])
+# # net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[5, 5, 5, 4, 4, 4, 2, 2, 2], squeeze_list=[0, 1, 0, 0, 0, 0, 0, 0, 0])
+# # net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[4, 4, 4], squeeze_list=[0, 0, 0])
 # net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[3, 3, 4, 6, 8], squeeze_list=[0, 0, 0, 0, 0])
-net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[3, 3, 4, 4, 6, 6, 8], squeeze_list=[0, 0, 0, 0, 0, 0, 0])
-criterion = torch.nn.CrossEntropyLoss()
+# # net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[3, 3, 4, 4, 6, 6, 8], squeeze_list=[0, 0, 0, 0, 0, 0, 0])
+
+net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[10, 10, 10], squeeze_list=[0, 0, 0])
 
 n_param = 0
 for e in net.parameters():
@@ -366,9 +382,9 @@ for epoch in range(100):
         if i % 200 == 0:
             image_reconst = net.inverse(latent, 'reconstructing from')
             image_sample = net.sample_x(n_samples=10)            
-            helper.vis_samples_np(helper.cpu(image).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/real/', prefix='real', resize=[512, 512])
-            helper.vis_samples_np(helper.cpu(image_reconst).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/reconst/', prefix='reconst', resize=[512, 512])
-            helper.vis_samples_np(helper.cpu(image_sample).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/network/', prefix='network', resize=[512, 512])
+            helper.vis_samples_np(helper.cpu(image).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/real/', prefix='real', resize=[256, 256])
+            helper.vis_samples_np(helper.cpu(image_reconst).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/reconst/', prefix='reconst', resize=[256, 256])
+            helper.vis_samples_np(helper.cpu(image_sample).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/network/', prefix='network', resize=[256, 256])
             # trace()
 
             print(f'[{epoch + 1}, {i + 1:5d}] loss: {loss.item()}')
