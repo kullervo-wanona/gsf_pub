@@ -25,18 +25,19 @@ from multi_channel_invertible_conv_lib import frequency_conv2D_lib
 # from DataLoaders.MNIST.MNISTLoader import DataLoader
 from DataLoaders.CelebA.CelebA32Loader import DataLoader
 
-train_data_loader = DataLoader(batch_size=100)
+train_data_loader = DataLoader(batch_size=20)
 train_data_loader.setup('Training', randomized=True, verbose=True)
 _, _, example_batch = next(train_data_loader) 
 
-test_data_loader = DataLoader(batch_size=100)
+test_data_loader = DataLoader(batch_size=20)
 test_data_loader.setup('Test', randomized=False, verbose=False)
 _, _, example_test_batch = next(test_data_loader) 
 test_image = helper.cuda(torch.from_numpy(example_test_batch['Image']))
 
 c_in=train_data_loader.image_size[1]
 n_in=train_data_loader.image_size[3]
-flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[3, 4, 5])
+# flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[3, 4, 5])
+flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[3, 4, 5, 6, 7])
 # flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[3, 3, 3, 3, 3, 3])
 flow_net.set_actnorm_parameters(train_data_loader, setup_mode='Training', n_batches=500, test_normalization=True, sub_image=[c_in, n_in, n_in])
 
@@ -46,8 +47,8 @@ for e in flow_net.parameters():
     n_param += np.prod(e.shape)
 print('Total number of parameters: ' + str(n_param))
 
-# optimizer = torch.optim.Adam(net.parameters(), lr=0.001, betas=(0.5, 0.9), eps=1e-08)
-optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.9, 0.95), eps=1e-08)
+optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.5, 0.9), eps=1e-08)
+# optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.9, 0.95), eps=1e-08)
 
 exp_t_start = time.time()
 for epoch in range(100):
@@ -63,7 +64,7 @@ for epoch in range(100):
         train_loss.backward()
         optimizer.step()
 
-        if i % 200 == 0:
+        if i % 500 == 0:
 
             train_latent, _ = flow_net.transform(train_image)
             train_image_reconst = flow_net.inverse_transform(train_latent)
@@ -94,6 +95,11 @@ for epoch in range(100):
 
             print(f'[{epoch + 1}, {i + 1:5d}] Train loss, neg_nats, neg_bits: {train_neg_log_likelihood, train_neg_nats_per_dim, train_neg_bits_per_dim}')
             print(f'[{epoch + 1}, {i + 1:5d}] Test loss, neg_nats, neg_bits: {test_neg_log_likelihood, test_neg_nats_per_dim, test_neg_bits_per_dim}')
+
+            # _, _, mean, std = flow_net.compute_actnorm_stats_for_layer(train_data_loader, flow_net.n_layers, setup_mode='Training', n_batches=500, sub_image=None, spatial=True)
+            # print('mean: \n' + str(mean))
+            # print('std: \n' + str(std))
+
 
 print('Experiment took '+str(time.time()-exp_t_start)+' seconds.')
 print('Finished Training')

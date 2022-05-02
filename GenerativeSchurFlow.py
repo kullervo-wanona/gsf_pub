@@ -26,6 +26,7 @@ class GenerativeSchurFlow(torch.nn.Module):
 
         self.uniform_dist = torch.distributions.Uniform(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([1.0])))
         self.normal_dist = torch.distributions.Normal(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([1.0])))
+        self.normal_sharp_dist = torch.distributions.Normal(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([0.5])))
 
         for layer_id, curr_k in enumerate(self.k_list):
             curr_c = self.c_in
@@ -51,6 +52,11 @@ class GenerativeSchurFlow(torch.nn.Module):
                 setattr(self, 'slog_log_alpha_'+str(layer_id+1), curr_slog_log_alpha_param)
 
             self.K_to_log_determinants.append(spectral_schur_det_lib.generate_kernel_to_schur_log_determinant(curr_k, curr_n, backend='torch'))
+
+        curr_temp_actnorm_bias = helper.cuda(torch.tensor(np.zeros([1, curr_c, 1, 1]), dtype=torch.float32))
+        curr_temp_actnorm_log_scale = helper.cuda(torch.tensor(np.zeros([1, curr_c, 1, 1]), dtype=torch.float32))
+        setattr(self, 'actnorm_bias_'+str(self.n_layers+1), curr_temp_actnorm_bias)
+        setattr(self, 'actnorm_log_scale_'+str(self.n_layers+1), curr_temp_actnorm_log_scale)
 
         self.c_out = curr_c
         self.n_out = curr_n
@@ -121,7 +127,7 @@ class GenerativeSchurFlow(torch.nn.Module):
 
     ################################################################################################
 
-    def compute_actnorm_stats_for_layer(self, data_loader, layer_id, setup_mode='Training', n_batches=500, sub_image=None):
+    def compute_actnorm_stats_for_layer(self, data_loader, layer_id, setup_mode='Training', n_batches=500, sub_image=None, spatial=False):
         data_loader.setup(setup_mode, randomized=False, verbose=False)
         print('Layer: ' + str(layer_id) + ', mean computation.' )
 
@@ -135,7 +141,8 @@ class GenerativeSchurFlow(torch.nn.Module):
 
             input_to_layer, _ = self.transform(image, until_layer=layer_id)
             input_to_layer = helper.to_numpy(input_to_layer)
-            curr_mean = input_to_layer.mean(axis=(2, 3)).sum(0)
+            if spatial: curr_mean = input_to_layer.sum(0)
+            else: curr_mean = input_to_layer.mean(axis=(2, 3)).sum(0)
             if accum_mean is None: accum_mean = curr_mean
             else: accum_mean += curr_mean
             n_examples += input_to_layer.shape[0]
@@ -155,20 +162,26 @@ class GenerativeSchurFlow(torch.nn.Module):
 
             input_to_layer, _ = self.transform(image, until_layer=layer_id)
             input_to_layer = helper.to_numpy(input_to_layer)
-            curr_var = ((input_to_layer-mean[np.newaxis, :, np.newaxis, np.newaxis])**2).mean(axis=(2, 3)).sum(0)
+            if spatial: curr_var = ((input_to_layer-mean[np.newaxis, :, :, :])**2).sum(0)
+            else: curr_var = ((input_to_layer-mean[np.newaxis, :, np.newaxis, np.newaxis])**2).mean(axis=(2, 3)).sum(0)
             if accum_var is None: accum_var = curr_var
             else: accum_var += curr_var
             n_examples += input_to_layer.shape[0]
 
         var = accum_var/n_examples
+        std = np.sqrt(var)
         log_std = 0.5*np.log(var)
         bias = -mean/(np.exp(log_std)+1e-5)
         log_scale = -log_std
 
-        bias = bias[np.newaxis, :, np.newaxis, np.newaxis].astype(np.float32)
-        log_scale = log_scale[np.newaxis, :, np.newaxis, np.newaxis].astype(np.float32)
+        if spatial: 
+            bias = bias[np.newaxis, :, :, :].astype(np.float32)
+            log_scale = log_scale[np.newaxis, :, :, :].astype(np.float32)
+        else: 
+            bias = bias[np.newaxis, :, np.newaxis, np.newaxis].astype(np.float32)
+            log_scale = log_scale[np.newaxis, :, np.newaxis, np.newaxis].astype(np.float32)
 
-        return bias, log_scale
+        return bias, log_scale, mean, std
 
     def set_actnorm_parameters_of_layer(self, layer_id, actnorm_bias_np, actnorm_log_scale_np):
         actnorm_bias = torch.nn.parameter.Parameter(data=helper.cuda(torch.tensor(actnorm_bias_np, dtype=torch.float32)), requires_grad=True)
@@ -177,12 +190,12 @@ class GenerativeSchurFlow(torch.nn.Module):
         setattr(self, 'actnorm_log_scale_'+str(layer_id+1), actnorm_log_scale)
 
     def set_actnorm_parameters(self, data_loader, setup_mode='Training', n_batches=500, test_normalization=True, sub_image=None):
-        for layer_id in range(self.n_layers):
-            actnorm_bias_np, actnorm_log_scale_np = self.compute_actnorm_stats_for_layer(data_loader, layer_id, setup_mode,  n_batches, sub_image)
+        for layer_id in range(self.n_layers+1):
+            actnorm_bias_np, actnorm_log_scale_np, _, _ = self.compute_actnorm_stats_for_layer(data_loader, layer_id, setup_mode,  n_batches, sub_image)
             self.set_actnorm_parameters_of_layer(layer_id, actnorm_bias_np, actnorm_log_scale_np)
             if test_normalization:
                 print('Testing normalization: ')
-                actnorm_bias_np, actnorm_log_scale_np = self.compute_actnorm_stats_for_layer(data_loader, layer_id, setup_mode,  n_batches, sub_image)
+                actnorm_bias_np, actnorm_log_scale_np, _, _ = self.compute_actnorm_stats_for_layer(data_loader, layer_id, setup_mode,  n_batches, sub_image)
                 assert (np.abs(actnorm_bias_np).max() < 1e-4)
                 assert (np.abs(actnorm_log_scale_np).max() < 1e-4)
                 print('Passed.')
@@ -246,7 +259,8 @@ class GenerativeSchurFlow(torch.nn.Module):
         return self.normal_dist.log_prob(z).sum(axis=[1, 2, 3])
 
     def sample_z(self, n_samples=10):
-        return self.normal_dist.sample([n_samples, self.c_out, self.n_out, self.n_out])[..., 0].detach()
+        # return self.normal_dist.sample([n_samples, self.c_out, self.n_out, self.n_out])[..., 0].detach()
+        return self.normal_sharp_dist.sample([n_samples, self.c_out, self.n_out, self.n_out])[..., 0].detach()
 
     def sample_x(self, n_samples=10):
         return self.inverse_transform(self.sample_z(n_samples))
@@ -279,6 +293,9 @@ class GenerativeSchurFlow(torch.nn.Module):
             layer_out = nonlin_out
             layer_in = layer_out
 
+        layer_out, actnorm_logdet = self.actnorm_with_logdet(layer_out, self.n_layers)
+        actnorm_logdets.append(actnorm_logdet)
+
         y = layer_out
         total_log_det = sum(actnorm_logdets)+sum(conv_logdets)+sum(nonlin_logdets) 
         return y, total_log_det
@@ -287,6 +304,8 @@ class GenerativeSchurFlow(torch.nn.Module):
         y = y.detach()
 
         layer_out = y
+        layer_out = self.actnorm_inverse(layer_out, self.n_layers)
+
         for layer_id in list(range(len(self.k_list)))[::-1]:
             if layer_id < (self.n_layers-1):
                 conv_out = self.slog_gate_inverse(layer_out, layer_id)
