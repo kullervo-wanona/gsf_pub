@@ -26,6 +26,9 @@ def cpu(x):
     if torch.cuda.is_available() and CUDA_FLAG and x.is_cuda: return x.cpu()
     else: return x
 
+def to_numpy(x):
+    return cpu(x.detach()).numpy()
+
 def display(mat, rescale=False):
     if rescale: mat = (mat-mat.min())/(mat.max()-mat.min())
     plt.imshow(np.clip(mat, 0, 1), interpolation='nearest')
