@@ -30,8 +30,8 @@ from multi_channel_invertible_conv_lib import frequency_conv2D_lib
 # data_loader.setup('Test', randomized=False, verbose=False)
 # _, _, batch = next(data_loader)
 
-from DataLoaders.MNIST.MNISTLoader import DataLoader
-# from DataLoaders.CelebA.CelebA32Loader import DataLoader
+# from DataLoaders.MNIST.MNISTLoader import DataLoader
+from DataLoaders.CelebA.CelebA32Loader import DataLoader
 data_loader = DataLoader(batch_size=10)
 data_loader.setup('Training', randomized=True, verbose=True)
 # data_loader.setup('Test', randomized=True, verbose=True)
@@ -39,7 +39,7 @@ data_loader.setup('Training', randomized=True, verbose=True)
 _, _, example_batch = next(data_loader) 
 
 
-class Net4(torch.nn.Module):
+class Net(torch.nn.Module):
     def __init__(self, c_in, n_in, k_list, squeeze_list, logit_layer=True, actnorm_layers=True, squeeze_layers=True):
         super().__init__()
         self.n_in = n_in
@@ -98,7 +98,7 @@ class Net4(torch.nn.Module):
     def dequantize(self, x, quantization_levels=255.):
         # https://arxiv.org/pdf/1511.01844.pdf
         scale = 1/quantization_levels
-        uniform_sample = self.uniform_dist.sample(x.shape)
+        uniform_sample = self.uniform_dist.sample(x.shape)[..., 0]
         return x+scale*uniform_sample
 
     def squeeze(self, x):
@@ -109,6 +109,7 @@ class Net4(torch.nn.Module):
         Returns:
             the squeezed tensor (B x 4C x H/2 x W/2).
         """
+        trace()
         [B, C, H, W] = list(x.size())
         x = x.reshape(B, C, H//2, 2, W//2, 2)
         x = x.permute(0, 1, 3, 5, 2, 4)
@@ -123,6 +124,7 @@ class Net4(torch.nn.Module):
         Returns:
             the squeezed tensor (B x C/4 x 2H x 2W).
         """
+        trace()
         [B, C, H, W] = list(x.size())
         x = x.reshape(B, C//4, 2, 2, H, W)
         x = x.permute(0, 1, 4, 2, 5, 3)
@@ -132,7 +134,7 @@ class Net4(torch.nn.Module):
     def logit_with_logdet(self, x, scale=0.1):
         x_safe = 0.005+x*0.99
         y = scale*(torch.log(x_safe)-torch.log(1-x_safe))
-        y_logdet = np.prod(x_safe.shape[1:])*np.log(scale)+(-torch.log(x_safe)-torch.log(1-x_safe)).sum(axis=[1, 2, 3])
+        y_logdet = np.prod(x_safe.shape[1:])*(np.log(scale)+np.log(0.99))+(-torch.log(x_safe)-torch.log(1-x_safe)).sum(axis=[1, 2, 3])
         return y, y_logdet
 
     def inverse_logit(self, y, scale=0.1):
@@ -259,7 +261,8 @@ class Net4(torch.nn.Module):
 
         log_det = logit_logdet+conv_log_dets_sum+nonlin_logdets_sum+actnorm_logdets_sum+conv_mult_log_dets_sum
         log_pdf_y = self.compute_normal_log_pdf(y)
-        log_pdf_x = log_pdf_y + log_det
+        # log_pdf_x = log_pdf_y + log_det
+        log_pdf_x = log_det
         # print('conv_log_dets_sum:', conv_log_dets_sum)
         # print('log_pdf_y:', log_pdf_y)
         # print('log_pdf_x:', log_pdf_x)
@@ -272,7 +275,7 @@ class Net4(torch.nn.Module):
         for layer_id in list(range(len(self.k_list)))[::-1]:
             if layer_id < len(self.k_list)-1:
                 # conv_out = self.inverse_tanh(nonlin_out)
-                conv_out = self.inverse_leaky_relu(nonlin_out)
+                # conv_out = self.inverse_leaky_relu(nonlin_out)
                 conv_out = self.inverse_slog_gat(nonlin_out, getattr(self, 'slog_log_alpha_'+str(layer_id+1)))
             else: conv_out = nonlin_out 
             # print(conv_out.min(), conv_out.max())
@@ -299,12 +302,51 @@ class Net4(torch.nn.Module):
         if self.logit_layer: x = self.inverse_logit(x)
         return x
 
-# # net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[5, 5, 5, 4, 4, 4, 2, 2, 2], squeeze_list=[0, 1, 0, 0, 0, 0, 0, 0, 0])
-# # net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[4, 4, 4], squeeze_list=[0, 0, 0])
-# net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[3, 3, 4, 6, 8], squeeze_list=[0, 0, 0, 0, 0])
-# # net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[3, 3, 4, 4, 6, 6, 8], squeeze_list=[0, 0, 0, 0, 0, 0, 0])
+# # net = Net(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[5, 5, 5, 4, 4, 4, 2, 2, 2], squeeze_list=[0, 1, 0, 0, 0, 0, 0, 0, 0])
+net = Net(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[4, 4, 4], squeeze_list=[0, 0, 0])
+# net = Net(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[3, 3, 4, 6, 8], squeeze_list=[0, 0, 0, 0, 0])
+# # net = Net(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[3, 3, 4, 4, 6, 6, 8], squeeze_list=[0, 0, 0, 0, 0, 0, 0])
 
-net = Net4(c_in=data_loader.image_size[1], n_in=data_loader.image_size[3], k_list=[10, 10, 10], squeeze_list=[0, 0, 0])
+
+
+
+def jacobian(func_to_J, point):
+    optimizer = torch.optim.Adam(func_to_J.parameters(), lr=0.0001, betas=(0.9, 0.95), eps=1e-08)
+    point.requires_grad = True
+
+    out, _ = func_to_J(point)
+    assert (out.shape == point.shape)
+
+    J = np.zeros(out.shape+point.shape[1:])
+    for i in range(out.shape[1]):
+        for a in range(out.shape[2]):
+            for b in range(out.shape[3]):
+                print(i, a, b)
+                optimizer.zero_grad() # zero the parameter gradients
+                if point.grad is not None: point.grad.zero_()
+
+                out, _ = func_to_J(point)
+                loss = torch.sum(out[:, i, a, b])
+                loss.backward()
+                J[:, i, a, b, ...] = point.grad.numpy()
+
+    J_flat = J.reshape(out.shape[0], np.prod(out.shape[1:]), np.prod(point.shape[1:]))
+    return J, J_flat
+
+net = Net(c_in=3, n_in=7, k_list=[4, 4, 4], squeeze_list=[0, 0, 0])
+example_input = helper.cuda(torch.from_numpy(example_batch['Image']))[:, :3, :7, :7]
+
+J, J_flat = jacobian(net, example_input)
+log_abs_det_desired_np = np.log(np.abs(np.linalg.det(J_flat)))
+
+_, log_abs_det_computed = net(example_input)
+log_abs_det_computed_np = log_abs_det_computed.detach().numpy()
+
+print("Desired: ", log_abs_det_desired_np)
+print("Computed: ", log_abs_det_computed_np)
+assert(np.abs(log_abs_det_desired_np-log_abs_det_computed_np).max() < 1e-4)
+trace()
+
 
 n_param = 0
 for e in net.parameters():
@@ -367,37 +409,63 @@ for layer_id in range(net.n_conv_blocks):
 
 
 exp_t_start = time.time()
-running_loss = 0.0
+# running_loss = 0.0
+
+test_data_loader = DataLoader(batch_size=10)
+test_data_loader.setup('Test', randomized=False, verbose=False)
+_, _, example_test_batch = next(test_data_loader) 
+test_image = helper.cuda(torch.from_numpy(example_test_batch['Image']))
+
 for epoch in range(100):
 
     data_loader.setup('Training', randomized=True, verbose=True)
     for i, curr_batch_size, batch_np in data_loader:     
-        image = helper.cuda(torch.from_numpy(batch_np['Image']))
+        train_image = helper.cuda(torch.from_numpy(batch_np['Image']))
 
         optimizer.zero_grad() # zero the parameter gradients
 
-        latent, log_pdf_image = net(image, dequantize=True)
+        train_latent, train_log_pdf_image = net(train_image, dequantize=True)
         # assert (torch.abs(latent-image).max() > 0.1)
         # print(torch.abs(image_reconst-image).max())
         # assert (torch.abs(image_reconst-image).max() < 1e-3)
-        loss = -torch.mean(log_pdf_image)
+        train_loss = -torch.mean(train_log_pdf_image)
 
-        loss.backward()
+        train_loss.backward()
         optimizer.step()
 
-        running_loss += loss.item()
+        # running_loss += loss.item()
         # if i % 10 == 0:
         if i % 200 == 0:
-            latent, _ = net(image)
-            image_reconst = net.inverse(latent, 'reconstructing from')
-            image_sample = net.sample_x(n_samples=10)            
-            helper.vis_samples_np(helper.cpu(image).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/real/', prefix='real', resize=[256, 256])
-            helper.vis_samples_np(helper.cpu(image_reconst).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/reconst/', prefix='reconst', resize=[256, 256])
-            helper.vis_samples_np(helper.cpu(image_sample).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/network/', prefix='network', resize=[256, 256])
-            # trace()
+            train_latent, _ = net(train_image)
+            train_image_reconst = net.inverse(train_latent, 'reconstructing from')
 
-            print(f'[{epoch + 1}, {i + 1:5d}] loss: {loss.item()}')
-            running_loss = 0.0
+            test_latent, log_pdf_test_image = net(test_image)
+            test_image_reconst = net.inverse(test_latent, 'reconstructing from')
+
+            image_sample = net.sample_x(n_samples=10)            
+
+            test_loss = -torch.mean(log_pdf_test_image)
+
+            helper.vis_samples_np(helper.cpu(train_image).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/train_real/', prefix='real', resize=[256, 256])
+            helper.vis_samples_np(helper.cpu(train_image_reconst).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/train_reconst/', prefix='reconst', resize=[256, 256])
+
+            helper.vis_samples_np(helper.cpu(test_image).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/test_real/', prefix='real', resize=[256, 256])
+            helper.vis_samples_np(helper.cpu(test_image_reconst).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/test_reconst/', prefix='reconst', resize=[256, 256])
+
+            helper.vis_samples_np(helper.cpu(image_sample).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/network/', prefix='network', resize=[256, 256])
+
+            train_neg_log_likelihood = train_loss.item()
+            train_neg_nats_per_dim = train_neg_log_likelihood/np.prod(data_loader.image_size[1:])
+            train_neg_bits_per_dim = train_neg_nats_per_dim/np.log(2)
+
+            test_neg_log_likelihood = test_loss.item()
+            test_neg_nats_per_dim = test_neg_log_likelihood/np.prod(data_loader.image_size[1:])
+            test_neg_bits_per_dim = test_neg_nats_per_dim/np.log(2)
+
+            print(f'[{epoch + 1}, {i + 1:5d}] Train loss, neg_nats, neg_bits: {train_neg_log_likelihood, train_neg_nats_per_dim, train_neg_bits_per_dim}')
+            print(f'[{epoch + 1}, {i + 1:5d}] Test loss, neg_nats, neg_bits: {test_neg_log_likelihood, test_neg_nats_per_dim, test_neg_bits_per_dim}')
+            
+            # running_loss = 0.0
 
             # print(getattr(net, 'conv_kernel_1'))
             # print(getattr(net, 'conv_kernel_2'))
@@ -409,6 +477,11 @@ print('Finished Training')
 
 
 
+
+
+
+# log_2 x = log_e x * mult
+# mult = log_2 x/log_e x = (log x/log 2)/(log x/log e) = 1/log 2
 
 
 
