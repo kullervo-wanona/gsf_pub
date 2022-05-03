@@ -22,8 +22,8 @@ import GenerativeSchurFlow
 from multi_channel_invertible_conv_lib import spatial_conv2D_lib
 from multi_channel_invertible_conv_lib import frequency_conv2D_lib
 
-from DataLoaders.MNIST.MNISTLoader import DataLoader
-# from DataLoaders.CelebA.CelebA32Loader import DataLoader
+# from DataLoaders.MNIST.MNISTLoader import DataLoader
+from DataLoaders.CelebA.CelebA32Loader import DataLoader
 
 train_data_loader = DataLoader(batch_size=10)
 train_data_loader.setup('Training', randomized=True, verbose=True)
@@ -36,12 +36,13 @@ test_image = helper.cuda(torch.from_numpy(example_test_batch['Image']))
 
 c_in=train_data_loader.image_size[1]
 n_in=train_data_loader.image_size[3]
+
 # flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[20, 20, 20], squeeze_list=[0, 0, 0])
-flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[20, 10, 7, 7, 7], squeeze_list=[0, 1, 1, 0, 0])
+# flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[20, 10, 7, 7, 7, 7, 7], squeeze_list=[0, 1, 1, 0, 0, 0, 0])
 # flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[20, 10, 7], squeeze_list=[0, 1, 1])
-# flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[3, 4, 5])
 # flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[3, 4, 5, 6, 7])
 # flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[3, 3, 3, 3, 3, 3])
+flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[20, 20, 20], squeeze_list=[0, 0, 0])
 flow_net.set_actnorm_parameters(train_data_loader, setup_mode='Training', n_batches=500, test_normalization=True, sub_image=[c_in, n_in, n_in])
 
 n_param = 0
@@ -53,7 +54,8 @@ print('Total number of parameters: ' + str(n_param))
 # optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.5, 0.9), eps=1e-08)
 # optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.001, betas=(0.5, 0.9), eps=1e-08)
 # optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.5, 0.9), eps=1e-08)
-optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.001, betas=(0.95, 0.99), eps=1e-08)
+# optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.5, 0.9), eps=1e-08, weight_decay=5e-5)
+optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.001, betas=(0.9, 0.99), eps=1e-08, weight_decay=5e-5)
 
 exp_t_start = time.time()
 for epoch in range(100):
@@ -69,8 +71,7 @@ for epoch in range(100):
         train_loss.backward()
         optimizer.step()
 
-        if i % 100 == 0:
-
+        if i % 300 == 0:
             train_latent, _ = flow_net.transform(train_image)
             train_image_reconst = flow_net.inverse_transform(train_latent)
 
@@ -81,6 +82,7 @@ for epoch in range(100):
             test_loss = -torch.mean(test_log_pdf_x)
 
             image_sample = flow_net.sample_x(n_samples=50)            
+            image_sharper_sample = flow_net.sample_sharper_x(n_samples=50)            
 
             helper.vis_samples_np(helper.cpu(train_image).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/train_real/', prefix='real', resize=[256, 256])
             helper.vis_samples_np(helper.cpu(train_image_reconst).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/train_reconst/', prefix='reconst', resize=[256, 256])
@@ -89,6 +91,7 @@ for epoch in range(100):
             helper.vis_samples_np(helper.cpu(test_image_reconst).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/test_reconst/', prefix='reconst', resize=[256, 256])
 
             helper.vis_samples_np(helper.cpu(image_sample).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/sample/', prefix='sample', resize=[256, 256])
+            helper.vis_samples_np(helper.cpu(image_sharper_sample).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/sharper_sample/', prefix='sharper_sample', resize=[256, 256])
 
             train_neg_log_likelihood = train_loss.item()
             train_neg_nats_per_dim = train_neg_log_likelihood/np.prod(train_image.shape[1:])
@@ -100,6 +103,7 @@ for epoch in range(100):
 
             print(f'[{epoch + 1}, {i + 1:5d}] Train loss, neg_nats, neg_bits: {train_neg_log_likelihood, train_neg_nats_per_dim, train_neg_bits_per_dim}')
             print(f'[{epoch + 1}, {i + 1:5d}] Test loss, neg_nats, neg_bits: {test_neg_log_likelihood, test_neg_nats_per_dim, test_neg_bits_per_dim}')
+
 
     # _, _, mean, std = flow_net.compute_actnorm_stats_for_layer(train_data_loader, flow_net.n_layers, setup_mode='Training', n_batches=500, sub_image=None, spatial=True)
     # print('mean: \n' + str(mean))

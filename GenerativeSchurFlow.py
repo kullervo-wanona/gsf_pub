@@ -29,6 +29,7 @@ class GenerativeSchurFlow(torch.nn.Module):
 
         self.uniform_dist = torch.distributions.Uniform(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([1.0])))
         self.normal_dist = torch.distributions.Normal(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([1.0])))
+        self.normal_sharper_dist = torch.distributions.Normal(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([0.5])))
 
         print('\n**********************************************************')
         print('Creating GenerativeSchurFlow: ')
@@ -46,15 +47,17 @@ class GenerativeSchurFlow(torch.nn.Module):
             setattr(self, 'actnorm_bias_'+str(layer_id+1), curr_temp_actnorm_bias)
             setattr(self, 'actnorm_log_scale_'+str(layer_id+1), curr_temp_actnorm_log_scale)
 
-            # _, iden_K = spatial_conv2D_lib.generate_identity_kernel(curr_c, curr_k, 'full', backend='numpy')
+            _, iden_K = spatial_conv2D_lib.generate_identity_kernel(curr_c, curr_k, 'full', backend='numpy')
             rand_kernel_np = helper.get_conv_initial_weight_kernel_np([curr_k, curr_k], curr_c, curr_c, 'he_uniform')
-            # curr_kernel_np = iden_K + 0.1*rand_kernel_np 
-            curr_kernel_np = rand_kernel_np
+            curr_kernel_np = iden_K + 0.1*rand_kernel_np 
+            # curr_kernel_np = rand_kernel_np
             curr_conv_kernel_param = torch.nn.parameter.Parameter(data=helper.cuda(torch.tensor(curr_kernel_np, dtype=torch.float32)), requires_grad=True)
             setattr(self, 'conv_kernel_'+str(layer_id+1), curr_conv_kernel_param)
-            curr_conv_bias_param = torch.nn.parameter.Parameter(data=helper.cuda(torch.zeros((1, curr_c, curr_n, curr_n), dtype=torch.float32)), requires_grad=True)
+            curr_conv_bias_param = torch.nn.parameter.Parameter(data=helper.cuda(torch.zeros((1, curr_c, 1, 1), dtype=torch.float32)), requires_grad=True)
+            # curr_conv_bias_param = torch.nn.parameter.Parameter(data=helper.cuda(torch.zeros((1, curr_c, curr_n, curr_n), dtype=torch.float32)), requires_grad=True)
             setattr(self, 'conv_bias_'+str(layer_id+1), curr_conv_bias_param)
-            curr_conv_log_scale_param = torch.nn.parameter.Parameter(data=helper.cuda(torch.zeros((1, curr_c, curr_n, curr_n), dtype=torch.float32)), requires_grad=True)
+            curr_conv_log_scale_param = torch.nn.parameter.Parameter(data=helper.cuda(torch.zeros((1, curr_c, 1, 1), dtype=torch.float32)), requires_grad=True)
+            # curr_conv_log_scale_param = torch.nn.parameter.Parameter(data=helper.cuda(torch.zeros((1, curr_c, curr_n, curr_n), dtype=torch.float32)), requires_grad=True)
             setattr(self, 'conv_log_scale_'+str(layer_id+1), curr_conv_log_scale_param)
 
             if layer_id < (self.n_layers-1):
@@ -109,7 +112,7 @@ class GenerativeSchurFlow(torch.nn.Module):
 
     ################################################################################################
 
-    def squeeze(self, x):
+    def squeeze(self, x, init_chan_together=True):
         """Squeezes a C x H x W tensor into a 4C x H/2 x W/2 tensor.
         (See Fig 3 in the real NVP paper.)
         Args:
@@ -119,11 +122,12 @@ class GenerativeSchurFlow(torch.nn.Module):
         """
         [B, C, H, W] = list(x.size())
         x = x.reshape(B, C, H//2, 2, W//2, 2)
-        x = x.permute(0, 1, 3, 5, 2, 4)
+        if init_chan_together: x = x.permute(0, 3, 5, 1, 2, 4)
+        else: x = x.permute(0, 1, 3, 5, 2, 4)
         x = x.reshape(B, C*4, H//2, W//2)
         return x
 
-    def undo_squeeze(self, x):
+    def undo_squeeze(self, x, init_chan_together=True):
         """unsqueezes a C x H x W tensor into a C/4 x 2H x 2W tensor.
         (See Fig 3 in the real NVP paper.)
         Args:
@@ -132,8 +136,12 @@ class GenerativeSchurFlow(torch.nn.Module):
             the squeezed tensor (B x C/4 x 2H x 2W).
         """
         [B, C, H, W] = list(x.size())
-        x = x.reshape(B, C//4, 2, 2, H, W)
-        x = x.permute(0, 1, 4, 2, 5, 3)
+        if init_chan_together: 
+            x = x.reshape(B, 2, 2, C//4, H, W)
+            x = x.permute(0, 3, 4, 1, 5, 2)
+        else: 
+            x = x.reshape(B, C//4, 2, 2, H, W)
+            x = x.permute(0, 1, 4, 2, 5, 3)
         x = x.reshape(B, C//4, H*2, W*2)
         return x
 
@@ -239,7 +247,11 @@ class GenerativeSchurFlow(torch.nn.Module):
         log_scale = getattr(self, 'conv_log_scale_'+str(layer_id+1))
         scale = torch.exp(log_scale)
         conv_out = scale*spatial_conv2D_lib.spatial_circular_conv2D_th(conv_in, K)+bias
-        conv_logdet = log_scale.sum()+self.K_to_log_determinants[layer_id](K)
+
+        if log_scale.shape[-1] == 1 and log_scale.shape[-1] == 1: 
+            conv_logdet = ((conv_out.shape[-2]*conv_out.shape[-1])*log_scale.sum())+self.K_to_log_determinants[layer_id](K)            
+        else:
+            conv_logdet = log_scale.sum()+self.K_to_log_determinants[layer_id](K)
         return conv_out, conv_logdet
 
     def conv_inverse(self, conv_out, layer_id):
@@ -274,8 +286,14 @@ class GenerativeSchurFlow(torch.nn.Module):
     def sample_z(self, n_samples=10):
         return self.normal_dist.sample([n_samples, self.c_out, self.n_out, self.n_out])[..., 0].detach()
 
+    def sample_sharper_z(self, n_samples=10):
+        return self.normal_sharper_dist.sample([n_samples, self.c_out, self.n_out, self.n_out])[..., 0].detach()
+
     def sample_x(self, n_samples=10):
         return self.inverse_transform(self.sample_z(n_samples))
+
+    def sample_sharper_x(self, n_samples=10):
+        return self.inverse_transform(self.sample_sharper_z(n_samples))
 
     ################################################################################################
 

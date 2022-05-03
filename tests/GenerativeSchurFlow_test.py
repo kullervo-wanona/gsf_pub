@@ -40,7 +40,7 @@ example_input_np = helper.to_numpy(example_input)
 example_out, logdet_computed = flow_net.transform(example_input)
 logdet_computed_np = helper.to_numpy(logdet_computed)
 J, J_flat = flow_net.jacobian(example_input)
-logdet_desired_np = np.log(np.abs(np.linalg.det(J_flat)))
+det_sign, logdet_desired_np = np.linalg.slogdet(J_flat)
 
 logdet_desired_error = np.abs(logdet_desired_np-logdet_computed_np).max()
 print("Desired Logdet: \n", logdet_desired_np)
@@ -66,3 +66,43 @@ print('All tests passed.')
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# squeezed = squeeze(test_image, init_chan_together=False)
+# test_image_rec = undo_squeeze(squeezed, init_chan_together=False)
+
+# helper.vis_samples_np(helper.cpu(squeezed[:, 0:12:4, :, :]).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/train_real/', prefix='real1', resize=[256, 256])
+# helper.vis_samples_np(helper.cpu(squeezed[:, 1:12:4, :, :]).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/train_real/', prefix='real2', resize=[256, 256])
+# helper.vis_samples_np(helper.cpu(squeezed[:, 2:12:4, :, :]).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/train_real/', prefix='real3', resize=[256, 256])
+# helper.vis_samples_np(helper.cpu(squeezed[:, 3:12:4, :, :]).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/train_real/', prefix='real4', resize=[256, 256])
+
+# squeezed = squeeze(test_image, init_chan_together=True)
+
+# helper.vis_samples_np(helper.cpu(squeezed[:, 0:3, :, :]).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/train_real/', prefix='real', resize=[256, 256])
+# helper.vis_samples_np(helper.cpu(squeezed[:, 3:6, :, :]).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/train_real/', prefix='real2', resize=[256, 256])
+# helper.vis_samples_np(helper.cpu(squeezed[:, 6:9, :, :]).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/train_real/', prefix='real3', resize=[256, 256])
+# helper.vis_samples_np(helper.cpu(squeezed[:, 9:12, :, :]).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/train_real/', prefix='real4', resize=[256, 256])
