@@ -26,7 +26,8 @@ class GenerativeSchurFlow(torch.nn.Module):
 
         self.uniform_dist = torch.distributions.Uniform(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([1.0])))
         self.normal_dist = torch.distributions.Normal(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([1.0])))
-        self.normal_sharp_dist = torch.distributions.Normal(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([0.5])))
+        # self.normal_dist = torch.distributions.Normal(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([0.3])))
+        # self.normal_sharp_dist = torch.distributions.Normal(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([0.7])))
 
         for layer_id, curr_k in enumerate(self.k_list):
             curr_c = self.c_in
@@ -37,9 +38,10 @@ class GenerativeSchurFlow(torch.nn.Module):
             setattr(self, 'actnorm_bias_'+str(layer_id+1), curr_temp_actnorm_bias)
             setattr(self, 'actnorm_log_scale_'+str(layer_id+1), curr_temp_actnorm_log_scale)
 
-            _, iden_K = spatial_conv2D_lib.generate_identity_kernel(curr_c, curr_k, 'full', backend='numpy')
+            # _, iden_K = spatial_conv2D_lib.generate_identity_kernel(curr_c, curr_k, 'full', backend='numpy')
             rand_kernel_np = helper.get_conv_initial_weight_kernel_np([curr_k, curr_k], curr_c, curr_c, 'he_uniform')
-            curr_kernel_np = iden_K + 0.1*rand_kernel_np 
+            # curr_kernel_np = iden_K + 0.1*rand_kernel_np 
+            curr_kernel_np = rand_kernel_np 
             curr_conv_kernel_param = torch.nn.parameter.Parameter(data=helper.cuda(torch.tensor(curr_kernel_np, dtype=torch.float32)), requires_grad=True)
             setattr(self, 'conv_kernel_'+str(layer_id+1), curr_conv_kernel_param)
             curr_conv_bias_param = torch.nn.parameter.Parameter(data=helper.cuda(torch.zeros((1, curr_c, curr_n, curr_n), dtype=torch.float32)), requires_grad=True)
@@ -259,8 +261,8 @@ class GenerativeSchurFlow(torch.nn.Module):
         return self.normal_dist.log_prob(z).sum(axis=[1, 2, 3])
 
     def sample_z(self, n_samples=10):
-        # return self.normal_dist.sample([n_samples, self.c_out, self.n_out, self.n_out])[..., 0].detach()
-        return self.normal_sharp_dist.sample([n_samples, self.c_out, self.n_out, self.n_out])[..., 0].detach()
+        return self.normal_dist.sample([n_samples, self.c_out, self.n_out, self.n_out])[..., 0].detach()
+        # return self.normal_sharp_dist.sample([n_samples, self.c_out, self.n_out, self.n_out])[..., 0].detach()
 
     def sample_x(self, n_samples=10):
         return self.inverse_transform(self.sample_z(n_samples))

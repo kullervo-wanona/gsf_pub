@@ -22,8 +22,8 @@ import GenerativeSchurFlow
 from multi_channel_invertible_conv_lib import spatial_conv2D_lib
 from multi_channel_invertible_conv_lib import frequency_conv2D_lib
 
-# from DataLoaders.MNIST.MNISTLoader import DataLoader
-from DataLoaders.CelebA.CelebA32Loader import DataLoader
+from DataLoaders.MNIST.MNISTLoader import DataLoader
+# from DataLoaders.CelebA.CelebA32Loader import DataLoader
 
 train_data_loader = DataLoader(batch_size=20)
 train_data_loader.setup('Training', randomized=True, verbose=True)
@@ -36,8 +36,9 @@ test_image = helper.cuda(torch.from_numpy(example_test_batch['Image']))
 
 c_in=train_data_loader.image_size[1]
 n_in=train_data_loader.image_size[3]
+flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[20, 20, 3])
 # flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[3, 4, 5])
-flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[3, 4, 5, 6, 7])
+# flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[3, 4, 5, 6, 7])
 # flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[3, 3, 3, 3, 3, 3])
 flow_net.set_actnorm_parameters(train_data_loader, setup_mode='Training', n_batches=500, test_normalization=True, sub_image=[c_in, n_in, n_in])
 
@@ -75,7 +76,7 @@ for epoch in range(100):
             _, _, _, test_log_pdf_x = flow_net(train_image)
             test_loss = -torch.mean(test_log_pdf_x)
 
-            image_sample = flow_net.sample_x(n_samples=10)            
+            image_sample = flow_net.sample_x(n_samples=50)            
 
             helper.vis_samples_np(helper.cpu(train_image).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/train_real/', prefix='real', resize=[256, 256])
             helper.vis_samples_np(helper.cpu(train_image_reconst).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/train_reconst/', prefix='reconst', resize=[256, 256])
@@ -96,9 +97,9 @@ for epoch in range(100):
             print(f'[{epoch + 1}, {i + 1:5d}] Train loss, neg_nats, neg_bits: {train_neg_log_likelihood, train_neg_nats_per_dim, train_neg_bits_per_dim}')
             print(f'[{epoch + 1}, {i + 1:5d}] Test loss, neg_nats, neg_bits: {test_neg_log_likelihood, test_neg_nats_per_dim, test_neg_bits_per_dim}')
 
-            # _, _, mean, std = flow_net.compute_actnorm_stats_for_layer(train_data_loader, flow_net.n_layers, setup_mode='Training', n_batches=500, sub_image=None, spatial=True)
-            # print('mean: \n' + str(mean))
-            # print('std: \n' + str(std))
+    _, _, mean, std = flow_net.compute_actnorm_stats_for_layer(train_data_loader, flow_net.n_layers, setup_mode='Training', n_batches=500, sub_image=None, spatial=True)
+    print('mean: \n' + str(mean))
+    print('std: \n' + str(std))
 
 
 print('Experiment took '+str(time.time()-exp_t_start)+' seconds.')
