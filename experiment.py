@@ -25,18 +25,19 @@ from multi_channel_invertible_conv_lib import frequency_conv2D_lib
 from DataLoaders.MNIST.MNISTLoader import DataLoader
 # from DataLoaders.CelebA.CelebA32Loader import DataLoader
 
-train_data_loader = DataLoader(batch_size=20)
+train_data_loader = DataLoader(batch_size=10)
 train_data_loader.setup('Training', randomized=True, verbose=True)
 _, _, example_batch = next(train_data_loader) 
 
-test_data_loader = DataLoader(batch_size=20)
+test_data_loader = DataLoader(batch_size=10)
 test_data_loader.setup('Test', randomized=False, verbose=False)
 _, _, example_test_batch = next(test_data_loader) 
 test_image = helper.cuda(torch.from_numpy(example_test_batch['Image']))
 
 c_in=train_data_loader.image_size[1]
 n_in=train_data_loader.image_size[3]
-flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[20, 20, 10, 10, 10])
+# flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[20, 20, 20], squeeze_list=[0, 0, 0])
+flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[20, 10, 7, 7, 7], squeeze_list=[0, 1, 1, 0, 0])
 # flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[3, 4, 5])
 # flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[3, 4, 5, 6, 7])
 # flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[3, 3, 3, 3, 3, 3])
@@ -49,7 +50,8 @@ for e in flow_net.parameters():
 print('Total number of parameters: ' + str(n_param))
 
 # optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.5, 0.9), eps=1e-08)
-optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.001, betas=(0.9, 0.95), eps=1e-08)
+optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.5, 0.9), eps=1e-08)
+# optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.001, betas=(0.9, 0.95), eps=1e-08)
 
 exp_t_start = time.time()
 for epoch in range(100):
@@ -65,7 +67,7 @@ for epoch in range(100):
         train_loss.backward()
         optimizer.step()
 
-        if i % 500 == 0:
+        if i % 100 == 0:
 
             train_latent, _ = flow_net.transform(train_image)
             train_image_reconst = flow_net.inverse_transform(train_latent)

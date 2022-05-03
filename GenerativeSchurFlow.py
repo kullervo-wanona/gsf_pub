@@ -16,22 +16,30 @@ from multi_channel_invertible_conv_lib import frequency_conv2D_lib
 
 
 class GenerativeSchurFlow(torch.nn.Module):
-    def __init__(self, c_in, n_in, k_list):
+    def __init__(self, c_in, n_in, k_list, squeeze_list):
         super().__init__()
+        assert (len(k_list) == len(squeeze_list))
+
         self.n_in = n_in
         self.c_in = c_in
         self.k_list = k_list
+        self.squeeze_list = squeeze_list
         self.K_to_log_determinants = []
         self.n_layers = len(self.k_list)
 
         self.uniform_dist = torch.distributions.Uniform(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([1.0])))
         self.normal_dist = torch.distributions.Normal(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([1.0])))
-        # self.normal_dist = torch.distributions.Normal(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([0.3])))
-        # self.normal_sharp_dist = torch.distributions.Normal(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([0.7])))
 
+        print('\n**********************************************************')
+        print('Creating GenerativeSchurFlow: ')
+        print('**********************************************************\n')
+        accum_squeeze = 0
         for layer_id, curr_k in enumerate(self.k_list):
-            curr_c = self.c_in
-            curr_n = self.n_in
+            accum_squeeze += self.squeeze_list[layer_id]
+            curr_c = self.c_in*(4**accum_squeeze)
+            curr_n = self.n_in//(2**accum_squeeze)
+            print('Layer '+str(layer_id)+': c='+str(curr_c)+', n='+str(curr_n)+', k='+str(curr_k))
+            assert (curr_n >= curr_k)
 
             curr_temp_actnorm_bias = helper.cuda(torch.tensor(np.zeros([1, curr_c, 1, 1]), dtype=torch.float32))
             curr_temp_actnorm_log_scale = helper.cuda(torch.tensor(np.zeros([1, curr_c, 1, 1]), dtype=torch.float32))
@@ -41,7 +49,7 @@ class GenerativeSchurFlow(torch.nn.Module):
             # _, iden_K = spatial_conv2D_lib.generate_identity_kernel(curr_c, curr_k, 'full', backend='numpy')
             rand_kernel_np = helper.get_conv_initial_weight_kernel_np([curr_k, curr_k], curr_c, curr_c, 'he_uniform')
             # curr_kernel_np = iden_K + 0.1*rand_kernel_np 
-            curr_kernel_np = rand_kernel_np 
+            curr_kernel_np = rand_kernel_np
             curr_conv_kernel_param = torch.nn.parameter.Parameter(data=helper.cuda(torch.tensor(curr_kernel_np, dtype=torch.float32)), requires_grad=True)
             setattr(self, 'conv_kernel_'+str(layer_id+1), curr_conv_kernel_param)
             curr_conv_bias_param = torch.nn.parameter.Parameter(data=helper.cuda(torch.zeros((1, curr_c, curr_n, curr_n), dtype=torch.float32)), requires_grad=True)
@@ -63,6 +71,8 @@ class GenerativeSchurFlow(torch.nn.Module):
         self.c_out = curr_c
         self.n_out = curr_n
 
+        print('\n**********************************************************\n')
+
     ################################################################################################
 
     def dequantize(self, x, quantization_levels=255.):
@@ -77,7 +87,9 @@ class GenerativeSchurFlow(torch.nn.Module):
 
         func_to_J = self.transform
         z, _ = func_to_J(x)
-        assert (z.shape == x.shape)
+        assert (len(z.shape) == 4 and len(x.shape) == 4)
+        assert (z.shape[0] == x.shape[0])
+        assert (np.prod(z.shape[1:]) == np.prod(x.shape[1:]))
 
         J = np.zeros(z.shape+x.shape[1:])
         for i in range(z.shape[1]):
@@ -105,7 +117,6 @@ class GenerativeSchurFlow(torch.nn.Module):
         Returns:
             the squeezed tensor (B x 4C x H/2 x W/2).
         """
-        trace()
         [B, C, H, W] = list(x.size())
         x = x.reshape(B, C, H//2, 2, W//2, 2)
         x = x.permute(0, 1, 3, 5, 2, 4)
@@ -120,7 +131,6 @@ class GenerativeSchurFlow(torch.nn.Module):
         Returns:
             the squeezed tensor (B x C/4 x 2H x 2W).
         """
-        trace()
         [B, C, H, W] = list(x.size())
         x = x.reshape(B, C//4, 2, 2, H, W)
         x = x.permute(0, 1, 4, 2, 5, 3)
@@ -192,7 +202,8 @@ class GenerativeSchurFlow(torch.nn.Module):
         setattr(self, 'actnorm_log_scale_'+str(layer_id+1), actnorm_log_scale)
 
     def set_actnorm_parameters(self, data_loader, setup_mode='Training', n_batches=500, test_normalization=True, sub_image=None):
-        for layer_id in range(self.n_layers+1):
+        # for layer_id in range(self.n_layers+1):
+        for layer_id in range(self.n_layers):
             actnorm_bias_np, actnorm_log_scale_np, _, _ = self.compute_actnorm_stats_for_layer(data_loader, layer_id, setup_mode,  n_batches, sub_image)
             self.set_actnorm_parameters_of_layer(layer_id, actnorm_bias_np, actnorm_log_scale_np)
             if test_normalization:
@@ -262,7 +273,6 @@ class GenerativeSchurFlow(torch.nn.Module):
 
     def sample_z(self, n_samples=10):
         return self.normal_dist.sample([n_samples, self.c_out, self.n_out, self.n_out])[..., 0].detach()
-        # return self.normal_sharp_dist.sample([n_samples, self.c_out, self.n_out, self.n_out])[..., 0].detach()
 
     def sample_x(self, n_samples=10):
         return self.inverse_transform(self.sample_z(n_samples))
@@ -275,6 +285,8 @@ class GenerativeSchurFlow(torch.nn.Module):
 
         layer_in = x
         for layer_id, k in enumerate(self.k_list): 
+            for squeeze_i in range(self.squeeze_list[layer_id]):
+                layer_in = self.squeeze(layer_in)
 
             actnorm_out, actnorm_logdet = self.actnorm_with_logdet(layer_in, layer_id)
             actnorm_logdets.append(actnorm_logdet)
@@ -295,8 +307,9 @@ class GenerativeSchurFlow(torch.nn.Module):
             layer_out = nonlin_out
             layer_in = layer_out
 
-        layer_out, actnorm_logdet = self.actnorm_with_logdet(layer_out, self.n_layers)
-        actnorm_logdets.append(actnorm_logdet)
+        if until_layer is None or until_layer == self.n_layers:
+            layer_out, actnorm_logdet = self.actnorm_with_logdet(layer_out, self.n_layers)
+            actnorm_logdets.append(actnorm_logdet)
 
         y = layer_out
         total_log_det = sum(actnorm_logdets)+sum(conv_logdets)+sum(nonlin_logdets) 
@@ -313,8 +326,12 @@ class GenerativeSchurFlow(torch.nn.Module):
                 conv_out = self.slog_gate_inverse(layer_out, layer_id)
             else:
                 conv_out = layer_out
+            
             actnorm_out = self.conv_inverse(conv_out, layer_id)
             layer_in = self.actnorm_inverse(actnorm_out, layer_id)
+
+            for squeeze_i in range(self.squeeze_list[layer_id]):
+                layer_in = self.undo_squeeze(layer_in)
             layer_out = layer_in
 
         x = layer_in
