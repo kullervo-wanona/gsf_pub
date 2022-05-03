@@ -36,7 +36,7 @@ test_image = helper.cuda(torch.from_numpy(example_test_batch['Image']))
 
 c_in=train_data_loader.image_size[1]
 n_in=train_data_loader.image_size[3]
-flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[20, 20, 3])
+flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[20, 20, 10, 10, 10])
 # flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[3, 4, 5])
 # flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[3, 4, 5, 6, 7])
 # flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[3, 3, 3, 3, 3, 3])
@@ -97,9 +97,9 @@ for epoch in range(100):
             print(f'[{epoch + 1}, {i + 1:5d}] Train loss, neg_nats, neg_bits: {train_neg_log_likelihood, train_neg_nats_per_dim, train_neg_bits_per_dim}')
             print(f'[{epoch + 1}, {i + 1:5d}] Test loss, neg_nats, neg_bits: {test_neg_log_likelihood, test_neg_nats_per_dim, test_neg_bits_per_dim}')
 
-    _, _, mean, std = flow_net.compute_actnorm_stats_for_layer(train_data_loader, flow_net.n_layers, setup_mode='Training', n_batches=500, sub_image=None, spatial=True)
-    print('mean: \n' + str(mean))
-    print('std: \n' + str(std))
+    # _, _, mean, std = flow_net.compute_actnorm_stats_for_layer(train_data_loader, flow_net.n_layers, setup_mode='Training', n_batches=500, sub_image=None, spatial=True)
+    # print('mean: \n' + str(mean))
+    # print('std: \n' + str(std))
 
 
 print('Experiment took '+str(time.time()-exp_t_start)+' seconds.')
