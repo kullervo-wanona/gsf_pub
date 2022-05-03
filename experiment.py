@@ -38,6 +38,7 @@ c_in=train_data_loader.image_size[1]
 n_in=train_data_loader.image_size[3]
 # flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[20, 20, 20], squeeze_list=[0, 0, 0])
 flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[20, 10, 7, 7, 7], squeeze_list=[0, 1, 1, 0, 0])
+# flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[20, 10, 7], squeeze_list=[0, 1, 1])
 # flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[3, 4, 5])
 # flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[3, 4, 5, 6, 7])
 # flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[3, 3, 3, 3, 3, 3])
@@ -50,8 +51,9 @@ for e in flow_net.parameters():
 print('Total number of parameters: ' + str(n_param))
 
 # optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.5, 0.9), eps=1e-08)
-optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.5, 0.9), eps=1e-08)
-# optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.001, betas=(0.9, 0.95), eps=1e-08)
+# optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.001, betas=(0.5, 0.9), eps=1e-08)
+# optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.5, 0.9), eps=1e-08)
+optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.001, betas=(0.95, 0.99), eps=1e-08)
 
 exp_t_start = time.time()
 for epoch in range(100):
