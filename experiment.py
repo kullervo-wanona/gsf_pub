@@ -18,12 +18,13 @@ import torch
 
 import helper
 import spectral_schur_det_lib
-import GenerativeSchurFlow
+# import GenerativeSchurFlow
+import GenerativeSchurFlowModuled
 from multi_channel_invertible_conv_lib import spatial_conv2D_lib
 from multi_channel_invertible_conv_lib import frequency_conv2D_lib
 
-# from DataLoaders.MNIST.MNISTLoader import DataLoader
-from DataLoaders.CelebA.CelebA32Loader import DataLoader
+from DataLoaders.MNIST.MNISTLoader import DataLoader
+# from DataLoaders.CelebA.CelebA32Loader import DataLoader
 
 train_data_loader = DataLoader(batch_size=10)
 train_data_loader.setup('Training', randomized=True, verbose=True)
@@ -42,12 +43,15 @@ n_in=train_data_loader.image_size[3]
 # flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[20, 10, 7], squeeze_list=[0, 1, 1])
 # flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[3, 4, 5, 6, 7])
 # flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[3, 3, 3, 3, 3, 3])
-flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[20, 20, 20], squeeze_list=[0, 0, 0])
+# flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[20, 20, 20], squeeze_list=[0, 0, 0])
+
+# flow_net = GenerativeSchurFlowModuled.GenerativeSchurFlow(c_in, n_in, k_list=[4, 4, 4, 4, 4, 4], squeeze_list=[0, 0, 0, 0, 0, 0])
+flow_net = GenerativeSchurFlowModuled.GenerativeSchurFlow(c_in, n_in, k_list=[10, 10, 10, 10, 10, 10], squeeze_list=[0, 0, 1, 0, 0, 0])
 flow_net.set_actnorm_parameters(train_data_loader, setup_mode='Training', n_batches=500, test_normalization=True, sub_image=[c_in, n_in, n_in])
 
 n_param = 0
-for e in flow_net.parameters():
-    print(e.shape)
+for name, e in flow_net.named_parameters():
+    print(name, e.requires_grad, e.shape)
     n_param += np.prod(e.shape)
 print('Total number of parameters: ' + str(n_param))
 
@@ -55,7 +59,7 @@ print('Total number of parameters: ' + str(n_param))
 # optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.001, betas=(0.5, 0.9), eps=1e-08)
 # optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.5, 0.9), eps=1e-08)
 # optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.5, 0.9), eps=1e-08, weight_decay=5e-5)
-optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.001, betas=(0.9, 0.99), eps=1e-08, weight_decay=5e-5)
+optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.5, 0.9), eps=1e-08, weight_decay=5e-5)
 
 exp_t_start = time.time()
 for epoch in range(100):

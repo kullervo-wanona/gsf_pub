@@ -19,7 +19,8 @@ import torch
 
 import helper
 import spectral_schur_det_lib
-import GenerativeSchurFlow
+# import GenerativeSchurFlow
+import GenerativeSchurFlowModuled
 from multi_channel_invertible_conv_lib import spatial_conv2D_lib
 from multi_channel_invertible_conv_lib import frequency_conv2D_lib
 
@@ -31,8 +32,15 @@ _, _, example_batch = next(data_loader)
 c_in = 3
 n_in = 16
 # flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in=c_in, n_in=n_in, k_list=[3, 4, 5], squeeze_list=[0, 0, 0])
-flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in=c_in, n_in=n_in, k_list=[3, 4, 4], squeeze_list=[0, 1, 0])
+# flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in=c_in, n_in=n_in, k_list=[3, 4, 4], squeeze_list=[0, 1, 0])
+flow_net = GenerativeSchurFlowModuled.GenerativeSchurFlow(c_in=c_in, n_in=n_in, k_list=[3, 4, 4], squeeze_list=[0, 1, 0])
 flow_net.set_actnorm_parameters(data_loader, setup_mode='Training', n_batches=500, test_normalization=True, sub_image=[c_in, n_in, n_in])
+
+n_param = 0
+for name, e in flow_net.named_parameters():
+    print(name, e.requires_grad, e.shape)
+    n_param += np.prod(e.shape)
+print('Total number of parameters: ' + str(n_param))
 
 example_input = helper.cuda(torch.from_numpy(example_batch['Image']))[:, :c_in, :n_in, :n_in]
 example_input_np = helper.to_numpy(example_input)
