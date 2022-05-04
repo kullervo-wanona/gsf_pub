@@ -239,11 +239,13 @@ class Actnorm(torch.nn.Module):
 ########################################################################################################
 
 class Squeeze(torch.nn.Module):
-    def __init__(self, chan_mode='input_channels_adjacent', spatial_mode='', name=''):
+    def __init__(self, chan_mode='input_channels_adjacent', spatial_mode='tl-br-tr-bl', name=''):
         super().__init__()
         assert (chan_mode in ['input_channels_adjacent', 'input_channels_apart'])
-        self.name = 'Squeeze' + name
+        assert (spatial_mode in ['tl-tr-bl-br', 'tl-br-tr-bl'])
+        self.name = 'Squeeze_' + name
         self.chan_mode = chan_mode
+        self.spatial_mode = spatial_mode
 
     def forward(self, x):
         """Squeezes a C x H x W tensor into a 4C x H/2 x W/2 tensor.
@@ -253,13 +255,24 @@ class Squeeze(torch.nn.Module):
         Returns:
             the squeezed tensor (B x 4C x H/2 x W/2).
         """
-        [B, C, H, W] = list(x.size())
+        B, C, H, W = x.shape
         x = x.reshape(B, C, H//2, 2, W//2, 2)
         if self.chan_mode == 'input_channels_adjacent':
             x = x.permute(0, 3, 5, 1, 2, 4)
+            if self.spatial_mode == 'tl-tr-bl-br':
+                x = x.reshape(B, C*4, H//2, W//2)
+            elif self.spatial_mode == 'tl-br-tr-bl':
+                x = torch.concat([x[:, 0, 0, np.newaxis], x[:, 1, 1, np.newaxis], 
+                                  x[:, 0, 1, np.newaxis], x[:, 1, 0, np.newaxis]], axis=1)
+                x = x.reshape(B, C*4, H//2, W//2)            
         elif self.chan_mode == 'input_channels_apart': 
             x = x.permute(0, 1, 3, 5, 2, 4)
-        x = x.reshape(B, C*4, H//2, W//2)
+            if self.spatial_mode == 'tl-tr-bl-br':
+                x = x.reshape(B, C*4, H//2, W//2)
+            elif self.spatial_mode == 'tl-br-tr-bl':
+                x = torch.concat([x[:, :, 0, 0, np.newaxis], x[:, :, 1, 1, np.newaxis], 
+                                  x[:, :, 0, 1, np.newaxis], x[:, :, 1, 0, np.newaxis]], axis=2)
+                x = x.reshape(B, C*4, H//2, W//2)            
         return x
 
     def inverse(self, x):
@@ -270,12 +283,22 @@ class Squeeze(torch.nn.Module):
         Returns:
             the squeezed tensor (B x C/4 x 2H x 2W).
         """
-        [B, C, H, W] = list(x.size())
+        B, C, H, W = x.shape
         if self.chan_mode == 'input_channels_adjacent':
-            x = x.reshape(B, 2, 2, C//4, H, W)
+            if self.spatial_mode == 'tl-tr-bl-br':
+                x = x.reshape(B, 2, 2, C//4, H, W)
+            elif self.spatial_mode == 'tl-br-tr-bl':
+                x = x.reshape(B, 4, C//4, H, W)
+                x = torch.concat([torch.concat([x[:, 0, np.newaxis, np.newaxis], x[:, 2, np.newaxis, np.newaxis]], axis=2),
+                                  torch.concat([x[:, 3, np.newaxis, np.newaxis], x[:, 1, np.newaxis, np.newaxis]], axis=2)], axis=1)
             x = x.permute(0, 3, 4, 1, 5, 2)
         elif self.chan_mode == 'input_channels_apart':
-            x = x.reshape(B, C//4, 2, 2, H, W)
+            if self.spatial_mode == 'tl-tr-bl-br':
+                x = x.reshape(B, C//4, 2, 2, H, W)
+            elif self.spatial_mode == 'tl-br-tr-bl':
+                x = x.reshape(B, C//4, 4, H, W)
+                x = torch.concat([torch.concat([x[:, :, 0, np.newaxis, np.newaxis], x[:, :, 2, np.newaxis, np.newaxis]], axis=3),
+                                  torch.concat([x[:, :, 3, np.newaxis, np.newaxis], x[:, :, 1, np.newaxis, np.newaxis]], axis=3)], axis=2)
             x = x.permute(0, 1, 4, 2, 5, 3)
         x = x.reshape(B, C//4, H*2, W*2)
         return x
@@ -283,7 +306,7 @@ class Squeeze(torch.nn.Module):
 ########################################################################################################
 
 class GenerativeSchurFlow(torch.nn.Module):
-    def __init__(self, c_in, n_in, k_list, squeeze_list):
+    def __init__(self, c_in, n_in, k_list, squeeze_list, final_actnorm=False):
         super().__init__()
         assert (len(k_list) == len(squeeze_list))
         self.name = 'GenerativeSchurFlow'
@@ -291,7 +314,7 @@ class GenerativeSchurFlow(torch.nn.Module):
         self.c_in = c_in
         self.k_list = k_list
         self.squeeze_list = squeeze_list
-        self.K_to_log_determinants = []
+        self.final_actnorm = final_actnorm
         self.n_layers = len(self.k_list)
 
         self.uniform_dist = torch.distributions.Uniform(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([1.0])))
@@ -326,12 +349,12 @@ class GenerativeSchurFlow(torch.nn.Module):
                 # nonlin_layers.append(SLogGate(curr_c, curr_n, mode='spatial', name=str(layer_id)))
                 nonlin_layers.append(PReLU(curr_c, curr_n, mode='spatial', name=str(layer_id)))
 
-        actnorm_layers.append(Actnorm(curr_c, curr_n, name='final'))
+        if self.final_actnorm: actnorm_layers.append(Actnorm(curr_c, curr_n, name='final'))
 
         self.conv_layers = torch.nn.ModuleList(conv_layers)
         self.nonlin_layers = torch.nn.ModuleList(nonlin_layers)
         self.actnorm_layers = torch.nn.ModuleList(actnorm_layers)
-        self.squeeze_layer = Squeeze(chan_mode='input_channels_adjacent')
+        self.squeeze_layer = Squeeze()
 
         self.c_out = curr_c
         self.n_out = curr_n
@@ -501,12 +524,13 @@ class GenerativeSchurFlow(torch.nn.Module):
             layer_out = nonlin_out
             layer_in = layer_out
 
-        actnorm_out, actnorm_logdet = self.actnorm_layers[self.n_layers].forward_with_logdet(layer_out)
-        if initialization and not self.actnorm_layers[self.n_layers].initialized:
-            return actnorm_out, self.actnorm_layers[self.n_layers]
-        actnorm_logdets.append(actnorm_logdet)
+        if self.final_actnorm: 
+            layer_out, actnorm_logdet = self.actnorm_layers[self.n_layers].forward_with_logdet(layer_out)
+            if initialization and not self.actnorm_layers[self.n_layers].initialized:
+                return layer_out, self.actnorm_layers[self.n_layers]
+            actnorm_logdets.append(actnorm_logdet)
 
-        y = actnorm_out
+        y = layer_out
         total_log_det = sum(actnorm_logdets)+sum(conv_logdets)+sum(nonlin_logdets) 
         return y, total_log_det
 
@@ -514,7 +538,7 @@ class GenerativeSchurFlow(torch.nn.Module):
         y = y.detach()
 
         layer_out = y
-        layer_out = self.actnorm_layers[self.n_layers].inverse(layer_out)
+        if self.final_actnorm: layer_out = self.actnorm_layers[self.n_layers].inverse(layer_out)
 
         for layer_id in list(range(len(self.k_list)))[::-1]:
             if layer_id != self.n_layers-1:
