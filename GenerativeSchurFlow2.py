@@ -243,29 +243,46 @@ class GenerativeSchurFlow(torch.nn.Module):
         return y, total_log_det
 
     def inverse_transform(self, y):
-        y = y.detach()
+        with torch.no_grad():
+            y = y.detach()
 
-        layer_out = y
-        if self.final_actnorm: layer_out = self.actnorm_layers[self.n_layers].inverse(layer_out)
+            layer_out = y
+            if self.final_actnorm: layer_out = self.actnorm_layers[self.n_layers].inverse(layer_out)
 
-        for layer_id in list(range(len(self.k_list)))[::-1]:
-            if layer_id != self.n_layers-1:
-                conv_out = self.nonlin_layers[layer_id].inverse(layer_out)
-            else:
-                conv_out = layer_out
-            
-            actnorm_out = self.conv_layers[layer_id].inverse(conv_out)
-            layer_in = self.actnorm_layers[layer_id].inverse(actnorm_out)
+            for layer_id in list(range(len(self.k_list)))[::-1]:
+                if layer_id != self.n_layers-1:
+                    conv_out = self.nonlin_layers[layer_id].inverse(layer_out)
+                else:
+                    conv_out = layer_out
+                
+                actnorm_out = self.conv_layers[layer_id].inverse(conv_out)
+                layer_in = self.actnorm_layers[layer_id].inverse(actnorm_out)
 
-            for squeeze_i in range(self.squeeze_list[layer_id]):
-                layer_in = self.squeeze_layer.inverse(layer_in)
-            layer_out = layer_in
+                for squeeze_i in range(self.squeeze_list[layer_id]):
+                    layer_in = self.squeeze_layer.inverse(layer_in)
+                layer_out = layer_in
 
-        x = layer_in
-        return x
+            x = layer_in
+            return x
 
     def forward(self, x, dequantize=True):
         if dequantize: x = self.dequantize(x)
+        x_squeezed = self.squeeze_layer(x)
+        x_base, x_update = x_squeezed[:, :x_squeezed.shape[1]//2], x_squeezed[:, x_squeezed.shape[1]//2:]
+
+        net = torch.nn.Sequential(
+            torch.nn.Conv2d(in_channels=x_base.shape[1], out_channels=100, kernel_size=3, stride=1, padding=0, 
+                            dilation=1, groups=1, bias=True, padding_mode='zeros'),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(in_channels=100, out_channels=100, kernel_size=3, stride=1, padding=0, 
+                            dilation=1, groups=1, bias=True, padding_mode='zeros'),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(in_channels=100, out_channels=100, kernel_size=3, stride=1, padding=0, 
+                            dilation=1, groups=1, bias=True, padding_mode='zeros'),            
+            )#.to(device)
+        x_base_out = net(x_base)
+        trace()
+
         z, logdet = self.transform(x)
         log_pdf_z = self.compute_normal_log_pdf(z)
         log_pdf_x = log_pdf_z + logdet
@@ -273,8 +290,69 @@ class GenerativeSchurFlow(torch.nn.Module):
 
 
 
+c_in = 3
+n_in = 16
+flow_net = GenerativeSchurFlow(c_in=c_in, n_in=n_in, k_list=[3, 4, 4], squeeze_list=[0, 1, 0])
+
+from DataLoaders.CelebA.CelebA32Loader import DataLoader
+data_loader = DataLoader(batch_size=10)
+data_loader.setup('Training', randomized=True, verbose=True)
+_, _, example_batch = next(data_loader) 
+
+example_input = helper.cuda(torch.from_numpy(example_batch['Image']))[:, :c_in, :n_in, :n_in]
+z, x, log_pdf_z, log_pdf_x = flow_net(example_input)
+
+trace()
 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# class net1(torch.nn.Module):
+#     def __init__(self):
+#         super(net1, self).__init__()
+#         self.seq = torch.nn.Sequential(
+#                         torch.nn.Conv2d(1,20,5),
+#                          torch.nn.ReLU(),
+#                           torch.nn.Conv2d(20,64,5),
+#                        torch.nn.ReLU()
+#                        )   
+
+#     def forward(self, x):
+#         return self.seq(x)
+
+#     #Note: the same result can be obtained by using the for loop as follows
+#     #def forward(self, x):
+#     #    for s in self.seq:
+#     #        x = s(x)
+#     #    return x
+
+
+# net = net1()
+# n_param = 0
+# for name, e in net.named_parameters():
+#     print(name, e.requires_grad, e.shape)
+#     n_param += np.prod(e.shape)
+# print('Total number of parameters: ' + str(n_param))
+
+# trace()
 

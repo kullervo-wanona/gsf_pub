@@ -17,11 +17,7 @@ import numpy as np
 import torch
 
 import helper
-import spectral_schur_det_lib
-# import GenerativeSchurFlow
-import GenerativeSchurFlowModuled
-from multi_channel_invertible_conv_lib import spatial_conv2D_lib
-from multi_channel_invertible_conv_lib import frequency_conv2D_lib
+from GenerativeSchurFlow import GenerativeSchurFlow
 
 from DataLoaders.MNIST.MNISTLoader import DataLoader
 # from DataLoaders.CelebA.CelebA32Loader import DataLoader
@@ -38,17 +34,17 @@ test_image = helper.cuda(torch.from_numpy(example_test_batch['Image']))
 c_in=train_data_loader.image_size[1]
 n_in=train_data_loader.image_size[3]
 
-# flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[20, 20, 20], squeeze_list=[0, 0, 0])
-# flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[20, 10, 7, 7, 7, 7, 7], squeeze_list=[0, 1, 1, 0, 0, 0, 0])
-# flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[20, 10, 7], squeeze_list=[0, 1, 1])
-# flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[3, 4, 5, 6, 7])
-# flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[3, 3, 3, 3, 3, 3])
-# flow_net = GenerativeSchurFlow.GenerativeSchurFlow(c_in, n_in, k_list=[20, 20, 20], squeeze_list=[0, 0, 0])
+# flow_net = GenerativeSchurFlow(c_in, n_in, k_list=[20, 20, 20], squeeze_list=[0, 0, 0])
+# flow_net = GenerativeSchurFlow(c_in, n_in, k_list=[20, 10, 7, 7, 7, 7, 7], squeeze_list=[0, 1, 1, 0, 0, 0, 0])
+# flow_net = GenerativeSchurFlow(c_in, n_in, k_list=[20, 10, 7], squeeze_list=[0, 1, 1])
+# flow_net = GenerativeSchurFlow(c_in, n_in, k_list=[3, 4, 5, 6, 7])
+# flow_net = GenerativeSchurFlow(c_in, n_in, k_list=[3, 3, 3, 3, 3, 3])
+# flow_net = GenerativeSchurFlow(c_in, n_in, k_list=[20, 20, 20], squeeze_list=[0, 0, 0])
 
-# flow_net = GenerativeSchurFlowModuled.GenerativeSchurFlow(c_in, n_in, k_list=[4, 4, 4, 4, 4, 4], squeeze_list=[0, 0, 0, 0, 0, 0])
-# flow_net = GenerativeSchurFlowModuled.GenerativeSchurFlow(c_in, n_in, k_list=[10, 10, 10, 5, 5, 5], squeeze_list=[0, 0, 1, 1, 0, 0])
-# flow_net = GenerativeSchurFlowModuled.GenerativeSchurFlow(c_in, n_in, k_list=[10, 10, 10, 10, 10], squeeze_list=[0, 0, 0, 0, 0])
-flow_net = GenerativeSchurFlowModuled.GenerativeSchurFlow(c_in, n_in, k_list=[10, 10, 10, 10, 10, 10, 10, 10, 10, 10], squeeze_list=[0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+# flow_net = GenerativeSchurFlow(c_in, n_in, k_list=[4, 4, 4, 4, 4, 4], squeeze_list=[0, 0, 0, 0, 0, 0])
+# flow_net = GenerativeSchurFlow(c_in, n_in, k_list=[10, 10, 10, 5, 5, 5], squeeze_list=[0, 0, 1, 1, 0, 0])
+# flow_net = GenerativeSchurFlow(c_in, n_in, k_list=[10, 10, 10, 10, 10], squeeze_list=[0, 0, 0, 0, 0])
+flow_net = GenerativeSchurFlow(c_in, n_in, k_list=[10, 10, 10, 10, 10, 10, 10, 10, 10, 10], squeeze_list=[0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
 flow_net.set_actnorm_parameters(train_data_loader, setup_mode='Training', n_batches=200, test_normalization=True, sub_image=[c_in, n_in, n_in])
 
 n_param = 0

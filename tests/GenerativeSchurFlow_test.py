@@ -18,32 +18,18 @@ import numpy as np
 import torch
 
 import helper
-import spectral_schur_det_lib
-# import GenerativeSchurFlow
-import GenerativeSchurFlowModuled
-from multi_channel_invertible_conv_lib import spatial_conv2D_lib
-from multi_channel_invertible_conv_lib import frequency_conv2D_lib
+from GenerativeSchurFlow import GenerativeSchurFlow
 
 from DataLoaders.CelebA.CelebA32Loader import DataLoader
 data_loader = DataLoader(batch_size=10)
 data_loader.setup('Training', randomized=True, verbose=True)
 _, _, example_batch = next(data_loader) 
 
-#######################  TEST SQUEEZE  #######################
-b, c, n = 10, 3, 4
-tensor = torch.from_numpy(np.arange(b*c*n*n).reshape(b, c, n, n))
-for chan_mode in ['input_channels_adjacent', 'input_channels_apart']:
-    for spatial_mode in ['tl-tr-bl-br', 'tl-br-tr-bl']:
-        squeezer = GenerativeSchurFlowModuled.Squeeze(chan_mode, spatial_mode)
-        tensor_squeezed = squeezer.forward(tensor)
-        tensor_rec = squeezer.inverse(tensor_squeezed)
-        assert (torch.abs(tensor_rec-tensor).max() < 1e-6)
-
-#######################  TEST SQUEEZE  #######################
 c_in = 3
 n_in = 16
-flow_net = GenerativeSchurFlowModuled.GenerativeSchurFlow(c_in=c_in, n_in=n_in, k_list=[3, 4, 4], squeeze_list=[0, 1, 0])
-flow_net.set_actnorm_parameters(data_loader, setup_mode='Training', n_batches=500, test_normalization=True, sub_image=[c_in, n_in, n_in])
+flow_net = GenerativeSchurFlow(c_in=c_in, n_in=n_in, k_list=[3, 4, 4], squeeze_list=[0, 1, 0])
+flow_net.set_actnorm_parameters(data_loader, setup_mode='Training', n_batches=500, 
+    test_normalization=True, sub_image=[c_in, n_in, n_in])
 
 n_param = 0
 for name, e in flow_net.named_parameters():

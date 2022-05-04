@@ -15,15 +15,15 @@ from multi_channel_invertible_conv_lib import spatial_conv2D_lib
 from multi_channel_invertible_conv_lib import frequency_conv2D_lib
 
 
-class GenerativeSchurFlowConf(torch.nn.Module):
-    def __init__(self, c_in, n_in, k_list):
+class GenerativeSchurFlow(torch.nn.Module):
+    def __init__(self, c_in, n_in, k_list, squeeze_list):
         super().__init__()
-        # assert (len(k_list) == len(squeeze_list))
+        assert (len(k_list) == len(squeeze_list))
 
         self.n_in = n_in
         self.c_in = c_in
         self.k_list = k_list
-        # self.squeeze_list = squeeze_list
+        self.squeeze_list = squeeze_list
         self.K_to_log_determinants = []
         self.n_layers = len(self.k_list)
 
@@ -32,31 +32,32 @@ class GenerativeSchurFlowConf(torch.nn.Module):
         self.normal_sharper_dist = torch.distributions.Normal(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([0.5])))
 
         print('\n**********************************************************')
-        print('Creating GenerativeSchurFlowConf: ')
+        print('Creating GenerativeSchurFlow: ')
         print('**********************************************************\n')
-        # accum_squeeze = 0
+        accum_squeeze = 0
         for layer_id, curr_k in enumerate(self.k_list):
-            # accum_squeeze += self.squeeze_list[layer_id]
-            # curr_c = self.c_in*(4**accum_squeeze)
-            # curr_n = self.n_in//(2**accum_squeeze)
-
-            curr_c = self.c_in
-            curr_n = self.n_in
+            accum_squeeze += self.squeeze_list[layer_id]
+            curr_c = self.c_in*(4**accum_squeeze)
+            curr_n = self.n_in//(2**accum_squeeze)
             print('Layer '+str(layer_id)+': c='+str(curr_c)+', n='+str(curr_n)+', k='+str(curr_k))
             assert (curr_n >= curr_k)
 
-            # curr_temp_actnorm_bias = helper.cuda(torch.tensor(np.zeros([1, curr_c, 1, 1]), dtype=torch.float32))
-            # curr_temp_actnorm_log_scale = helper.cuda(torch.tensor(np.zeros([1, curr_c, 1, 1]), dtype=torch.float32))
-            # setattr(self, 'actnorm_bias_'+str(layer_id+1), curr_temp_actnorm_bias)
-            # setattr(self, 'actnorm_log_scale_'+str(layer_id+1), curr_temp_actnorm_log_scale)
+            curr_temp_actnorm_bias = helper.cuda(torch.tensor(np.zeros([1, curr_c, 1, 1]), dtype=torch.float32))
+            curr_temp_actnorm_log_scale = helper.cuda(torch.tensor(np.zeros([1, curr_c, 1, 1]), dtype=torch.float32))
+            setattr(self, 'actnorm_bias_'+str(layer_id+1), curr_temp_actnorm_bias)
+            setattr(self, 'actnorm_log_scale_'+str(layer_id+1), curr_temp_actnorm_log_scale)
 
+            _, iden_K = spatial_conv2D_lib.generate_identity_kernel(curr_c, curr_k, 'full', backend='numpy')
             rand_kernel_np = helper.get_conv_initial_weight_kernel_np([curr_k, curr_k], curr_c, curr_c, 'he_uniform')
-            curr_kernel_np = rand_kernel_np
+            curr_kernel_np = iden_K + 0.1*rand_kernel_np 
+            # curr_kernel_np = rand_kernel_np
             curr_conv_kernel_param = torch.nn.parameter.Parameter(data=helper.cuda(torch.tensor(curr_kernel_np, dtype=torch.float32)), requires_grad=True)
             setattr(self, 'conv_kernel_'+str(layer_id+1), curr_conv_kernel_param)
             curr_conv_bias_param = torch.nn.parameter.Parameter(data=helper.cuda(torch.zeros((1, curr_c, 1, 1), dtype=torch.float32)), requires_grad=True)
+            # curr_conv_bias_param = torch.nn.parameter.Parameter(data=helper.cuda(torch.zeros((1, curr_c, curr_n, curr_n), dtype=torch.float32)), requires_grad=True)
             setattr(self, 'conv_bias_'+str(layer_id+1), curr_conv_bias_param)
             curr_conv_log_scale_param = torch.nn.parameter.Parameter(data=helper.cuda(torch.zeros((1, curr_c, 1, 1), dtype=torch.float32)), requires_grad=True)
+            # curr_conv_log_scale_param = torch.nn.parameter.Parameter(data=helper.cuda(torch.zeros((1, curr_c, curr_n, curr_n), dtype=torch.float32)), requires_grad=True)
             setattr(self, 'conv_log_scale_'+str(layer_id+1), curr_conv_log_scale_param)
 
             if layer_id < (self.n_layers-1):
@@ -65,10 +66,10 @@ class GenerativeSchurFlowConf(torch.nn.Module):
 
             self.K_to_log_determinants.append(spectral_schur_det_lib.generate_kernel_to_schur_log_determinant(curr_k, curr_n, backend='torch'))
 
-        # curr_temp_actnorm_bias = helper.cuda(torch.tensor(np.zeros([1, curr_c, 1, 1]), dtype=torch.float32))
-        # curr_temp_actnorm_log_scale = helper.cuda(torch.tensor(np.zeros([1, curr_c, 1, 1]), dtype=torch.float32))
-        # setattr(self, 'actnorm_bias_'+str(self.n_layers+1), curr_temp_actnorm_bias)
-        # setattr(self, 'actnorm_log_scale_'+str(self.n_layers+1), curr_temp_actnorm_log_scale)
+        curr_temp_actnorm_bias = helper.cuda(torch.tensor(np.zeros([1, curr_c, 1, 1]), dtype=torch.float32))
+        curr_temp_actnorm_log_scale = helper.cuda(torch.tensor(np.zeros([1, curr_c, 1, 1]), dtype=torch.float32))
+        setattr(self, 'actnorm_bias_'+str(self.n_layers+1), curr_temp_actnorm_bias)
+        setattr(self, 'actnorm_log_scale_'+str(self.n_layers+1), curr_temp_actnorm_log_scale)
 
         self.c_out = curr_c
         self.n_out = curr_n
