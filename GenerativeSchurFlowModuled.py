@@ -94,6 +94,22 @@ class MultiChannel2DCircularConv(torch.nn.Module):
         return conv_in
 
 ########################################################################################################
+class Tanh(torch.nn.Module):
+    def __init__(self, c, n, name=''):
+        super().__init__()
+        self.name = 'Tanh_' + name
+        self.n = n
+        self.c = c
+
+    def forward_with_logdet(self, nonlin_in):
+        nonlin_out = torch.tanh(x)
+        deriv = 1-nonlin_out*nonlin_out
+        logdet = torch.log(deriv).sum(axis=[1, 2, 3])
+        return nonlin_out, logdet
+
+    def inverse(self, nonlin_out):
+        nonlin_in = 0.5*(torch.log(1+y)-torch.log(1-y))
+        return nonlin_in
 
 class PReLU(torch.nn.Module):
     def __init__(self, c, n, mode='non-spatial', name=''):
@@ -306,7 +322,7 @@ class Squeeze(torch.nn.Module):
 ########################################################################################################
 
 class GenerativeSchurFlow(torch.nn.Module):
-    def __init__(self, c_in, n_in, k_list, squeeze_list, final_actnorm=False):
+    def __init__(self, c_in, n_in, k_list, squeeze_list, final_actnorm=True):
         super().__init__()
         assert (len(k_list) == len(squeeze_list))
         self.name = 'GenerativeSchurFlow'
@@ -347,7 +363,8 @@ class GenerativeSchurFlow(torch.nn.Module):
 
             if layer_id != self.n_layers-1:
                 # nonlin_layers.append(SLogGate(curr_c, curr_n, mode='spatial', name=str(layer_id)))
-                nonlin_layers.append(PReLU(curr_c, curr_n, mode='spatial', name=str(layer_id)))
+                # nonlin_layers.append(PReLU(curr_c, curr_n, mode='spatial', name=str(layer_id)))
+                nonlin_layers.append(Tanh(curr_c, curr_n, name=str(layer_id)))
 
         if self.final_actnorm: actnorm_layers.append(Actnorm(curr_c, curr_n, name='final'))
 
