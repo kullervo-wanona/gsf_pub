@@ -17,7 +17,7 @@ class ConditionalSchurTransform(torch.nn.Module):
     def __init__(self, c_in, n_in, k_list, squeeze_list, final_actnorm=True):
         super().__init__()
         assert (len(k_list) == len(squeeze_list))
-        self.name = 'GenerativeSchurFlow2'
+        self.name = 'ConditionalSchurTransform'
         self.n_in = n_in
         self.c_in = c_in
         self.k_list = k_list
@@ -26,7 +26,7 @@ class ConditionalSchurTransform(torch.nn.Module):
         self.n_layers = len(self.k_list)
 
         print('\n**********************************************************')
-        print('Creating GenerativeSchurFlow: ')
+        print('Creating ConditionalSchurTransform: ')
         print('**********************************************************\n')
         conv_layers, affine_layers, conv_nonlin_layers, affine_nonlin_layers, actnorm_layers = [], [], [], [], []
 
@@ -263,10 +263,10 @@ class ConditionalSchurTransform(torch.nn.Module):
     ################################################################################################
 
 
-class GenerativeSchurFlow(torch.nn.Module):
+class GenerativeConditionalSchurFlow(torch.nn.Module):
     def __init__(self, c_in, n_in):
         super().__init__()
-        self.name = 'GenerativeSchurFlow'
+        self.name = 'GenerativeConditionalSchurFlow'
         self.c_in = c_in
         self.n_in = n_in
 
@@ -284,6 +284,9 @@ class GenerativeSchurFlow(torch.nn.Module):
             c_out=self.cond_schur_transform.spatial_cond_param_shape[0])
         self.non_spatial_cond_net = self.create_non_spatial_cond_net(c_in=self.base_cond_net_c_out, n_in=(self.n_in//2), 
             c_out=self.cond_schur_transform.non_spatial_n_cond_params)
+
+        self.c_out = 2*self.cond_schur_transform.c_out
+        self.n_out = self.cond_schur_transform.n_out
 
     ################################################################################################
 
@@ -374,7 +377,7 @@ class GenerativeSchurFlow(torch.nn.Module):
         dummy_optimizer = torch.optim.Adam(self.parameters())
         x.requires_grad = True
 
-        func_to_J = self.forward
+        func_to_J = self.transform
         z, _ = func_to_J(x)
         assert (len(z.shape) == 4 and len(x.shape) == 4)
         assert (z.shape[0] == x.shape[0])
@@ -552,43 +555,43 @@ class GenerativeSchurFlow(torch.nn.Module):
         log_pdf_x = log_pdf_z + logdet
         return z, x, log_pdf_z, log_pdf_x
 
-from DataLoaders.MNIST.MNISTLoader import DataLoader
+# # from DataLoaders.MNIST.MNISTLoader import DataLoader
 # from DataLoaders.CelebA.CelebA32Loader import DataLoader
-train_data_loader = DataLoader(batch_size=10)
-train_data_loader.setup('Training', randomized=True, verbose=True)
-_, _, example_batch = next(train_data_loader) 
-example_input = helper.cuda(torch.from_numpy(example_batch['Image']))
+# train_data_loader = DataLoader(batch_size=10)
+# train_data_loader.setup('Training', randomized=True, verbose=True)
+# _, _, example_batch = next(train_data_loader) 
+# example_input = helper.cuda(torch.from_numpy(example_batch['Image']))
 
-c_in=train_data_loader.image_size[1]
-n_in=train_data_loader.image_size[3]
-flow_net = GenerativeSchurFlow(c_in, n_in)
-flow_net.set_actnorm_parameters(train_data_loader, setup_mode='Training', n_batches=500, test_normalization=True)
+# c_in=train_data_loader.image_size[1]
+# n_in=train_data_loader.image_size[3]
+# flow_net = GenerativeConditionalSchurFlow(c_in, n_in)
+# flow_net.set_actnorm_parameters(train_data_loader, setup_mode='Training', n_batches=500, test_normalization=True)
 
-n_param = 0
-for name, e in flow_net.named_parameters():
-    print(name, e.requires_grad, e.shape)
-    n_param += np.prod(e.shape)
-print('Total number of parameters: ' + str(n_param))
+# n_param = 0
+# for name, e in flow_net.named_parameters():
+#     print(name, e.requires_grad, e.shape)
+#     n_param += np.prod(e.shape)
+# print('Total number of parameters: ' + str(n_param))
 
-example_out, logdet_computed = flow_net.transform(example_input)
-example_input_rec = flow_net.inverse_transform(example_out)
-print(torch.abs(example_input-example_input_rec).max())
+# example_out, logdet_computed = flow_net.transform(example_input)
+# example_input_rec = flow_net.inverse_transform(example_out)
+# print(torch.abs(example_input-example_input_rec).max())
 
-z, x, log_pdf_z, log_pdf_x = flow_net(example_input)
+# z, x, log_pdf_z, log_pdf_x = flow_net(example_input)
 
 
-J, J_flat = flow_net.jacobian(example_input)
-det_sign, logdet_desired_np = np.linalg.slogdet(J_flat)
+# J, J_flat = flow_net.jacobian(example_input)
+# det_sign, logdet_desired_np = np.linalg.slogdet(J_flat)
 
-example_out, logdet_computed = flow_net(example_input)
-logdet_computed_np = helper.to_numpy(logdet_computed)
+# example_out, logdet_computed = flow_net.transform(example_input)
+# logdet_computed_np = helper.to_numpy(logdet_computed)
 
-logdet_desired_error = np.abs(logdet_desired_np-logdet_computed_np).max()
-print("Desired Logdet: \n", logdet_desired_np)
-print("Computed Logdet: \n", logdet_computed_np)
-print('Logdet error:' + str(logdet_desired_error))
+# logdet_desired_error = np.abs(logdet_desired_np-logdet_computed_np).max()
+# print("Desired Logdet: \n", logdet_desired_np)
+# print("Computed Logdet: \n", logdet_computed_np)
+# print('Logdet error:' + str(logdet_desired_error))
 
-trace()
+# trace()
 
 
 
