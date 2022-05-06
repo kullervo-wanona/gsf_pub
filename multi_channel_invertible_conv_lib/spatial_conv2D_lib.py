@@ -153,7 +153,27 @@ def spatial_linear_conv2D(X, K_spatial, channel_mode='full', backend='torch'):
         return spatial_linear_conv2D_th(torch.tensor(X, dtype=torch.float32), 
             torch.tensor(K_spatial, dtype=torch.float32), channel_mode).numpy()
 
+def batch_spatial_circular_conv2D_th(X_th, K_spatial_th):
+    # batch version
+    ###### PREPROCESS IMAGE ######
+    # In order to simulate circular convolutions using linear convolutions, we circularly pad the input tensor in its spatial dimensions.
+    padded_X_th = X_th
+    if K_spatial_th.shape[3] > 1: padded_X_th = torch.concat([padded_X_th, padded_X_th[:, :, :K_spatial_th.shape[3]-1, :]], axis=2)
+    if K_spatial_th.shape[4] > 1: padded_X_th = torch.concat([padded_X_th, padded_X_th[:, :, :, :K_spatial_th.shape[4]-1]], axis=3)            
 
+    ###### PERFORM CONVOLUTION ######
+    padded_X_th_vv = padded_X_th.reshape(1, -1, padded_X_th.shape[-2], padded_X_th.shape[-1])
+    K_spatial_th_vv = K_spatial_th.reshape(-1, K_spatial_th.shape[-3], K_spatial_th.shape[-2], K_spatial_th.shape[-1])
+    Y_th_vv = torch.nn.functional.conv2d(padded_X_th_vv, K_spatial_th_vv, stride=(1, 1), padding='valid', dilation=(1, 1), groups=X_th.shape[0])
+    Y_th = Y_th_vv.reshape(X_th.shape[0], K_spatial_th.shape[1], Y_th_vv.shape[-2], Y_th_vv.shape[-1])
+    return Y_th
+
+def batch_spatial_circular_conv2D(X, K_spatial, channel_mode='full', backend='torch'):
+    if backend == 'torch':
+        return batch_spatial_circular_conv2D_th(X, K_spatial, channel_mode)
+    if backend == 'numpy':
+        return batch_spatial_circular_conv2D_th(torch.tensor(X, dtype=torch.float32), 
+            torch.tensor(K_spatial, dtype=torch.float32), channel_mode).numpy()
 
 
 

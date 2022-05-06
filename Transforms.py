@@ -12,7 +12,6 @@ import torch
 import helper
 import spectral_schur_det_lib
 from multi_channel_invertible_conv_lib import spatial_conv2D_lib
-from multi_channel_invertible_conv_lib import frequency_conv2D_lib
 
 ########################################################################################################
 
@@ -41,7 +40,8 @@ class MultiChannel2DCircularConv(torch.nn.Module):
         kernel_th = helper.cuda(torch.tensor(kernel_np, dtype=torch.float32))
         kernel_param = torch.nn.parameter.Parameter(data=kernel_th, requires_grad=True)
         setattr(self, 'kernel', kernel_param)
-        self.kernel_to_logdet = spectral_schur_det_lib.generate_kernel_to_schur_log_determinant(self.k, self.n, backend='torch')
+        self.conv_inverse_func = spectral_schur_det_lib.generate_frequency_inverse_circular_conv2D(self.k, self.n)
+        self.conv_kernel_to_logdet = spectral_schur_det_lib.generate_kernel_to_schur_log_determinant(self.k, self.n)
 
         if self.bias_mode == 'spatial': 
             bias_th = helper.cuda(torch.zeros((1, self.c, self.n, self.n), dtype=torch.float32))
@@ -62,7 +62,7 @@ class MultiChannel2DCircularConv(torch.nn.Module):
     def forward_with_logdet(self, conv_in):
         K = getattr(self, 'kernel')
         conv_out = spatial_conv2D_lib.spatial_circular_conv2D_th(conv_in, K)
-        logdet = self.kernel_to_logdet(K)
+        logdet = self.conv_kernel_to_logdet(K)
 
         if self.bias_mode in ['non-spatial', 'spatial']: 
             bias = getattr(self, 'bias')
@@ -82,16 +82,16 @@ class MultiChannel2DCircularConv(torch.nn.Module):
     def inverse(self, conv_out):
         with torch.no_grad():
             if self.scale_mode in ['non-spatial', 'spatial']: 
-                log_scale = getattr(self, 'log_scale').detach()
+                log_scale = getattr(self, 'log_scale')
                 scale = torch.exp(log_scale)
                 conv_out = conv_out/(scale+1e-6)
 
             if self.bias_mode in ['non-spatial', 'spatial']: 
-                bias = getattr(self, 'bias').detach()
+                bias = getattr(self, 'bias')
                 conv_out = conv_out-bias
 
-            K = getattr(self, 'kernel').detach()
-            conv_in = frequency_conv2D_lib.frequency_inverse_circular_conv2D(conv_out, K, 'full', mode='complex', backend='torch')
+            K = getattr(self, 'kernel')
+            conv_in = self.conv_inverse_func(conv_out, K)
             return conv_in
 
 ########################################################################################################
@@ -111,7 +111,7 @@ class Logit(torch.nn.Module):
         log_one_min_nonlin_in_safe = torch.log(1-nonlin_in_safe)
         nonlin_out = self.scale*(log_nonlin_in_safe-log_one_min_nonlin_in_safe)
 
-        logdet = np.prod(nonlin_in.shape[1:])*(np.log(self.scale)+np.log(self.safe_mult)) + \
+        logdet = np.prod(nonlin_in.shape[1:])*(np.log(self  .scale)+np.log(self.safe_mult)) + \
             (-log_nonlin_in_safe-log_one_min_nonlin_in_safe).sum(axis=[1, 2, 3])
         return nonlin_out, logdet
 
@@ -181,8 +181,8 @@ class PReLU(torch.nn.Module):
 
     def inverse(self, nonlin_out):
         with torch.no_grad():
-            pos_log_scale = getattr(self, 'pos_log_scale').detach()
-            neg_log_scale = getattr(self, 'neg_log_scale').detach()
+            pos_log_scale = getattr(self, 'pos_log_scale')
+            neg_log_scale = getattr(self, 'neg_log_scale')
             pos_scale = torch.exp(pos_log_scale)
             neg_scale = torch.exp(neg_log_scale)
 
@@ -219,7 +219,7 @@ class SLogGate(torch.nn.Module):
 
     def inverse(self, nonlin_out):
         with torch.no_grad():
-            log_alpha = getattr(self, 'log_alpha').detach()
+            log_alpha = getattr(self, 'log_alpha')
             alpha = torch.exp(log_alpha)
             nonlin_in = (torch.sign(nonlin_out)/alpha)*(torch.exp(alpha*torch.abs(nonlin_out))-1)
             return nonlin_in
@@ -280,8 +280,8 @@ class Actnorm(torch.nn.Module):
 
     def inverse(self, actnorm_out):
         with torch.no_grad():
-            bias = getattr(self, 'bias').detach()
-            log_scale = getattr(self, 'log_scale').detach()
+            bias = getattr(self, 'bias')
+            log_scale = getattr(self, 'log_scale')
 
             scale = torch.exp(log_scale)
             actnorm_in = (actnorm_out-bias)/(scale+1e-6)

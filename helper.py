@@ -18,12 +18,14 @@ CUDA_FLAG = True
 
 def cuda(x):
     global CUDA_FLAG
-    if torch.cuda.is_available() and CUDA_FLAG and not x.is_cuda: return x.to(device='cuda')
+    if torch.cuda.is_available() and CUDA_FLAG: return x.to(device='cuda')
+    # if torch.cuda.is_available() and CUDA_FLAG and not x.is_cuda: return x.to(device='cuda')
     else: return x
 
 def cpu(x):
     global CUDA_FLAG
-    if torch.cuda.is_available() and CUDA_FLAG and x.is_cuda: return x.cpu()
+    # if torch.cuda.is_available() and CUDA_FLAG and x.is_cuda: return x.cpu()
+    if torch.cuda.is_available() and CUDA_FLAG: return x.cpu()
     else: return x
 
 def to_numpy(x):

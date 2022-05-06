@@ -194,16 +194,20 @@ class GenerativeSchurFlow(torch.nn.Module):
         return self.normal_dist.log_prob(z).sum(axis=[1, 2, 3])
 
     def sample_z(self, n_samples=10):
-        return self.normal_dist.sample([n_samples, self.c_out, self.n_out, self.n_out])[..., 0].detach()
+        with torch.no_grad():
+            return self.normal_dist.sample([n_samples, self.c_out, self.n_out, self.n_out])[..., 0]
 
     def sample_sharper_z(self, n_samples=10):
-        return self.normal_sharper_dist.sample([n_samples, self.c_out, self.n_out, self.n_out])[..., 0].detach()
+        with torch.no_grad():
+            return self.normal_sharper_dist.sample([n_samples, self.c_out, self.n_out, self.n_out])[..., 0]
 
     def sample_x(self, n_samples=10):
-        return self.inverse_transform(self.sample_z(n_samples))
+        with torch.no_grad():
+            return self.inverse_transform(self.sample_z(n_samples))
 
     def sample_sharper_x(self, n_samples=10):
-        return self.inverse_transform(self.sample_sharper_z(n_samples))
+        with torch.no_grad():
+            return self.inverse_transform(self.sample_sharper_z(n_samples))
 
     ################################################################################################
 
@@ -243,26 +247,26 @@ class GenerativeSchurFlow(torch.nn.Module):
         return y, total_log_det
 
     def inverse_transform(self, y):
-        y = y.detach()
+        with torch.no_grad():
 
-        layer_out = y
-        if self.final_actnorm: layer_out = self.actnorm_layers[self.n_layers].inverse(layer_out)
+            layer_out = y
+            if self.final_actnorm: layer_out = self.actnorm_layers[self.n_layers].inverse(layer_out)
 
-        for layer_id in list(range(len(self.k_list)))[::-1]:
-            if layer_id != self.n_layers-1:
-                conv_out = self.nonlin_layers[layer_id].inverse(layer_out)
-            else:
-                conv_out = layer_out
-            
-            actnorm_out = self.conv_layers[layer_id].inverse(conv_out)
-            layer_in = self.actnorm_layers[layer_id].inverse(actnorm_out)
+            for layer_id in list(range(len(self.k_list)))[::-1]:
+                if layer_id != self.n_layers-1:
+                    conv_out = self.nonlin_layers[layer_id].inverse(layer_out)
+                else:
+                    conv_out = layer_out
+                
+                actnorm_out = self.conv_layers[layer_id].inverse(conv_out)
+                layer_in = self.actnorm_layers[layer_id].inverse(actnorm_out)
 
-            for squeeze_i in range(self.squeeze_list[layer_id]):
-                layer_in = self.squeeze_layer.inverse(layer_in)
-            layer_out = layer_in
+                for squeeze_i in range(self.squeeze_list[layer_id]):
+                    layer_in = self.squeeze_layer.inverse(layer_in)
+                layer_out = layer_in
 
-        x = layer_in
-        return x
+            x = layer_in
+            return x
 
     def forward(self, x, dequantize=True):
         if dequantize: x = self.dequantize(x)
