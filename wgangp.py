@@ -34,7 +34,7 @@ from pathlib import Path
 #     raise Exception('Please specify path to data directory in gan_cifar.py!')
 
 MODE = 'wgan-gp' # Valid options are dcgan, wgan, or wgan-gp
-DIM = 128 # This overfits substantially; you're probably better off with 64
+DIM = 64 # This overfits substantially; you're probably better off with 64
 LAMBDA = 10 # Gradient penalty lambda hyperparameter
 CRITIC_ITERS = 5 # How many critic iterations per generator iteration
 BATCH_SIZE = 64 # Batch size
