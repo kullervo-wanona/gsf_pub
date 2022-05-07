@@ -10,11 +10,11 @@ import numpy as np
 import torch
 
 import helper
-from Transforms import Actnorm, Squeeze, SLogGate
+from Transforms import Actnorm, Squeeze, SLogGate, PReLU
 from ConditionalTransforms import CondMultiChannel2DCircularConv, CondAffine #, CondPReLU, CondSLogGate
 
 class ConditionalSchurTransform(torch.nn.Module):
-    def __init__(self, c_in, n_in, k_list, squeeze_list, final_actnorm=True):
+    def __init__(self, c_in, n_in, k_list, squeeze_list, final_actnorm=False):
         super().__init__()
         assert (len(k_list) == len(squeeze_list))
         self.name = 'ConditionalSchurTransform'
@@ -42,7 +42,7 @@ class ConditionalSchurTransform(torch.nn.Module):
             print('Layer '+str(layer_id)+': c='+str(curr_c)+', n='+str(curr_n)+', k='+str(curr_k))
             assert (curr_n >= curr_k)
 
-            actnorm_layers.append(Actnorm(curr_c, curr_n, name=str(layer_id)))
+            actnorm_layers.append(Actnorm(curr_c, curr_n, mode='non-spatial', name=str(layer_id)))
 
             conv_layer = CondMultiChannel2DCircularConv(curr_c, curr_n, curr_k, 
                 bias_mode='non-spatial', name=str(layer_id))
@@ -50,16 +50,17 @@ class ConditionalSchurTransform(torch.nn.Module):
             conv_layers.append(conv_layer)
 
             if layer_id != self.n_layers-1:
-                conv_nonlin_layers.append(SLogGate(curr_c, curr_n, mode='non-spatial', name='conv_nonlin_'+str(layer_id)))
+                conv_nonlin_layers.append(PReLU(curr_c, curr_n, mode='non-spatial', name='conv_nonlin_'+str(layer_id)))
 
             affine_layer = CondAffine(curr_c, curr_n, mode='spatial', name=str(layer_id))
             self.spatial_conditional_transforms[affine_layer.name] = affine_layer
             affine_layers.append(affine_layer)
             
             if layer_id != self.n_layers-1:
-                affine_nonlin_layers.append(SLogGate(curr_c, curr_n, mode='non-spatial', name='affine_nonlin_'+str(layer_id)))
+                # affine_nonlin_layers.append(SLogGate(curr_c, curr_n, mode='non-spatial', name='affine_nonlin_'+str(layer_id)))
+                affine_nonlin_layers.append(PReLU(curr_c, curr_n, mode='non-spatial', name='affine_nonlin_'+str(layer_id)))
 
-        if self.final_actnorm: actnorm_layers.append(Actnorm(curr_c, curr_n, name='final'))
+        if self.final_actnorm: actnorm_layers.append(Actnorm(curr_c, curr_n, mode='non-spatial', name='final'))
 
         self.conv_layers = torch.nn.ModuleList(conv_layers)
         self.conv_nonlin_layers = torch.nn.ModuleList(conv_nonlin_layers)
@@ -290,7 +291,7 @@ class GenerativeConditionalSchurFlow(torch.nn.Module):
 
     ################################################################################################
 
-    def create_base_cond_net(self, c_in, c_out, channel_multiplier=1):
+    def create_base_cond_net(self, c_in, c_out, channel_multiplier=5):
         net = torch.nn.Sequential(
             torch.nn.Conv2d(in_channels=c_in, out_channels=c_in*2*channel_multiplier, kernel_size=3, stride=1, padding='same',
                             dilation=1, groups=1, bias=True, padding_mode='zeros'),
@@ -487,7 +488,8 @@ class GenerativeConditionalSchurFlow(torch.nn.Module):
 
     ###############################################################################################
     def compute_normal_log_pdf(self, z):
-        return self.normal_dist.log_prob(z).sum(axis=[1, 2, 3])
+        return (-0.5*np.log(2*np.pi)-0.5*(z*z)).sum(axis=[1, 2, 3])
+        # return self.normal_dist.log_prob(z).sum(axis=[1, 2, 3])
 
     def sample_z(self, n_samples=10):
         with torch.no_grad():
@@ -553,7 +555,7 @@ class GenerativeConditionalSchurFlow(torch.nn.Module):
         z, logdet = self.transform(x)
         log_pdf_z = self.compute_normal_log_pdf(z)
         log_pdf_x = log_pdf_z + logdet
-        return z, x, log_pdf_z, log_pdf_x
+        return z, x, logdet, log_pdf_z, log_pdf_x
 
 # # from DataLoaders.MNIST.MNISTLoader import DataLoader
 # from DataLoaders.CelebA.CelebA32Loader import DataLoader

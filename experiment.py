@@ -47,7 +47,7 @@ n_in=train_data_loader.image_size[3]
 # flow_net = GenerativeSchurFlow(c_in, n_in, k_list=[10, 10, 10, 10, 10], squeeze_list=[0, 0, 0, 0, 0])
 # flow_net = GenerativeSchurFlow(c_in, n_in, k_list=[10, 10, 10, 10, 10, 10, 10, 10, 10, 10], squeeze_list=[0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
 flow_net = GenerativeConditionalSchurFlow(c_in, n_in)
-flow_net.set_actnorm_parameters(train_data_loader, setup_mode='Training', n_batches=200, test_normalization=True)
+# flow_net.set_actnorm_parameters(train_data_loader, setup_mode='Training', n_batches=200, test_normalization=True)
 
 n_param = 0
 for name, e in flow_net.named_parameters():
@@ -55,13 +55,13 @@ for name, e in flow_net.named_parameters():
     n_param += np.prod(e.shape)
 print('Total number of parameters: ' + str(n_param))
 
-# optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.5, 0.9), eps=1e-08)
-optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.001, betas=(0.5, 0.9), eps=1e-08)
+optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.5, 0.9), eps=1e-08)
+# optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.001, betas=(0.5, 0.9), eps=1e-08)
 # optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.5, 0.9), eps=1e-08)
 # optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.5, 0.9), eps=1e-08, weight_decay=5e-5)
 # optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0003, betas=(0.5, 0.9), eps=1e-08, weight_decay=5e-5)
 # optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0005, betas=(0.9, 0.99), eps=1e-08, weight_decay=5e-5)
-# optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.001, betas=(0.5, 0.5), eps=1e-08, weight_decay=5e-5)
+# optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.001, betas=(0,  0.5), eps=1e-08)
 # optimizer = torch.optim.RMSprop(flow_net.parameters(), lr=0.0001, alpha=0.9, eps=1e-08, weight_decay=0, momentum=0.5, centered=False)
 
 exp_t_start = time.time()
@@ -72,8 +72,8 @@ for epoch in range(100):
         train_image = helper.cuda(torch.from_numpy(batch_np['Image']))
         optimizer.zero_grad() # zero the parameter gradients
 
-        z, x, log_pdf_z, log_pdf_x = flow_net(train_image)
-        train_loss = -torch.mean(log_pdf_x)
+        z, x, logdet, log_pdf_z, log_pdf_x = flow_net(train_image)
+        train_loss = -torch.mean(logdet)-20*torch.mean(log_pdf_z)
 
         train_loss.backward()
         optimizer.step()
@@ -85,8 +85,13 @@ for epoch in range(100):
             test_latent, _ = flow_net.transform(test_image)
             test_image_reconst = flow_net.inverse_transform(test_latent)
 
-            _, _, _, test_log_pdf_x = flow_net(train_image)
-            test_loss = -torch.mean(test_log_pdf_x)
+            _, _, _, train_log_pdf_z, train_log_pdf_x = flow_net(train_image)
+            mean_train_log_pdf_z = torch.mean(train_log_pdf_z)
+            mean_train_log_pdf_x = torch.mean(train_log_pdf_x)
+
+            _, _, _, test_log_pdf_z, test_log_pdf_x = flow_net(train_image)
+            mean_test_log_pdf_z = torch.mean(test_log_pdf_z)
+            mean_test_log_pdf_x = torch.mean(test_log_pdf_x)
 
             image_sample = flow_net.sample_x(n_samples=50)            
             image_sharper_sample = flow_net.sample_sharper_x(n_samples=50)            
@@ -100,17 +105,20 @@ for epoch in range(100):
             helper.vis_samples_np(helper.cpu(image_sample).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/sample/', prefix='sample', resize=[256, 256])
             helper.vis_samples_np(helper.cpu(image_sharper_sample).detach().numpy(), sample_dir=str(Path.home())+'/ExperimentalResults/samples_from_schur/sharper_sample/', prefix='sharper_sample', resize=[256, 256])
 
-            train_neg_log_likelihood = train_loss.item()
-            train_neg_nats_per_dim = train_neg_log_likelihood/np.prod(train_image.shape[1:])
-            train_neg_bits_per_dim = train_neg_nats_per_dim/np.log(2)
+            train_log_likelihood_z = mean_train_log_pdf_z.item()
+            train_log_likelihood_x = mean_train_log_pdf_x.item()
+            train_nats_per_dim = train_log_likelihood_x/np.prod(train_image.shape[1:])
+            train_bits_per_dim = train_nats_per_dim/np.log(2)
 
-            test_neg_log_likelihood = test_loss.item()
-            test_neg_nats_per_dim = test_neg_log_likelihood/np.prod(test_image.shape[1:])
-            test_neg_bits_per_dim = test_neg_nats_per_dim/np.log(2)
+            test_log_likelihood_z = mean_test_log_pdf_z.item()
+            test_log_likelihood_x = mean_test_log_pdf_x.item()
+            test_nats_per_dim = test_log_likelihood_x/np.prod(test_image.shape[1:])
+            test_bits_per_dim = test_nats_per_dim/np.log(2)
 
-            print(f'[{epoch + 1}, {i + 1:5d}] Train loss, neg_nats, neg_bits: {train_neg_log_likelihood, train_neg_nats_per_dim, train_neg_bits_per_dim}')
-            print(f'[{epoch + 1}, {i + 1:5d}] Test loss, neg_nats, neg_bits: {test_neg_log_likelihood, test_neg_nats_per_dim, test_neg_bits_per_dim}')
+            print(f'[{epoch + 1}, {i + 1:5d}] Train Z LL, X LL, nats, bits: {train_log_likelihood_z, train_log_likelihood_x, train_nats_per_dim, train_bits_per_dim}')
+            print(f'[{epoch + 1}, {i + 1:5d}] Test Z LL, X LL, nats, bits: {test_log_likelihood_z, test_log_likelihood_x, test_nats_per_dim, test_bits_per_dim}')
 
+            # trace()
 
     # _, _, mean, std = flow_net.compute_actnorm_stats_for_layer(train_data_loader, flow_net.n_layers, setup_mode='Training', n_batches=500, sub_image=None, spatial=True)
     # print('mean: \n' + str(mean))
