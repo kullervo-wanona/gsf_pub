@@ -25,10 +25,10 @@ class GenerativeSchurFlow(torch.nn.Module):
         self.n_layers = len(self.k_list)
 
         self.uniform_dist = torch.distributions.Uniform(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([1.0])))
-        self.normal_dist = torch.distributions.Normal(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([0.1])))
-        self.normal_sharper_dist = torch.distributions.Normal(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([0.07])))
-        # self.normal_dist = torch.distributions.Normal(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([1.0])))
-        # self.normal_sharper_dist = torch.distributions.Normal(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([0.7])))
+        # self.normal_dist = torch.distributions.Normal(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([0.1])))
+        # self.normal_sharper_dist = torch.distributions.Normal(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([0.07])))
+        self.normal_dist = torch.distributions.Normal(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([1.0])))
+        self.normal_sharper_dist = torch.distributions.Normal(helper.cuda(torch.tensor([0.0])), helper.cuda(torch.tensor([0.7])))
 
         print('\n**********************************************************')
         print('Creating GenerativeSchurFlow: ')
@@ -45,17 +45,16 @@ class GenerativeSchurFlow(torch.nn.Module):
             assert (curr_n >= curr_k)
 
             actnorm_layers.append(Actnorm(curr_c, curr_n, name=str(layer_id)))
-            conv_layers.append(MultiChannel2DCircularConv(
-                curr_c, curr_n, curr_k, kernel_init='I + he_uniform', 
-                bias_mode='spatial', scale_mode='no-scale', name=str(layer_id)))
             # conv_layers.append(MultiChannel2DCircularConv(
-            #     curr_c, curr_n, curr_k, kernel_init='he_uniform', 
+            #     curr_c, curr_n, curr_k, kernel_init='I + he_uniform', 
             #     bias_mode='spatial', scale_mode='no-scale', name=str(layer_id)))
+            conv_layers.append(MultiChannel2DCircularConv(
+                curr_c, curr_n, curr_k, kernel_init='he_uniform', 
+                bias_mode='spatial', scale_mode='no-scale', name=str(layer_id)))
 
             if layer_id != self.n_layers-1:
                 # nonlin_layers.append(SLogGate(curr_c, curr_n, mode='spatial', name=str(layer_id)))
-                # nonlin_layers.append(PReLU(curr_c, curr_n, mode='spatial', name=str(layer_id)))
-                nonlin_layers.append(Tanh(curr_c, curr_n, name=str(layer_id)))
+                nonlin_layers.append(PReLU(curr_c, curr_n, mode='spatial', name=str(layer_id)))
 
         if self.final_actnorm: actnorm_layers.append(Actnorm(curr_c, curr_n, name='final'))
 
@@ -191,7 +190,8 @@ class GenerativeSchurFlow(torch.nn.Module):
     ################################################################################################
 
     def compute_normal_log_pdf(self, z):
-        return self.normal_dist.log_prob(z).sum(axis=[1, 2, 3])
+        return (-0.5*np.log(2*np.pi)-0.5*(z*z)).sum(axis=[1, 2, 3])
+        # return self.normal_dist.log_prob(z).sum(axis=[1, 2, 3])
 
     def sample_z(self, n_samples=10):
         with torch.no_grad():
@@ -273,7 +273,7 @@ class GenerativeSchurFlow(torch.nn.Module):
         z, logdet = self.transform(x)
         log_pdf_z = self.compute_normal_log_pdf(z)
         log_pdf_x = log_pdf_z + logdet
-        return z, x, log_pdf_z, log_pdf_x
+        return z, x, logdet, log_pdf_z, log_pdf_x
 
 
 

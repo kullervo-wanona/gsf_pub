@@ -278,15 +278,17 @@ class GenerativeConditionalSchurFlow(torch.nn.Module):
         self.squeeze_layer = Squeeze()
         self.cond_schur_transform = ConditionalSchurTransform(c_in=self.c_in*4//2, n_in=n_in//2, 
             k_list=[3, 4, 4], squeeze_list=[0, 0, 0])
+        self.cond_schur_transform_2 = ConditionalSchurTransform(c_in=self.c_in*4//2, n_in=n_in//2, 
+            k_list=[3, 4, 4], squeeze_list=[0, 0, 0])
 
         self.base_cond_net_c_out = 128
         self.base_cond_net = self.create_base_cond_net(c_in=(self.c_in*4//2), c_out=self.base_cond_net_c_out)
         self.spatial_cond_net = self.create_spatial_cond_net(c_in=self.base_cond_net_c_out, 
-            c_out=self.cond_schur_transform.spatial_cond_param_shape[0])
+            c_out=self.cond_schur_transform.spatial_cond_param_shape[0]+self.cond_schur_transform_2.spatial_cond_param_shape[0])
         self.non_spatial_cond_net = self.create_non_spatial_cond_net(c_in=self.base_cond_net_c_out, n_in=(self.n_in//2), 
-            c_out=self.cond_schur_transform.non_spatial_n_cond_params)
+            c_out=self.cond_schur_transform.non_spatial_n_cond_params+self.cond_schur_transform_2.non_spatial_n_cond_params)
 
-        self.c_out = 2*self.cond_schur_transform.c_out
+        self.c_out = self.cond_schur_transform.c_out + self.cond_schur_transform_2.c_out
         self.n_out = self.cond_schur_transform.n_out
 
     ################################################################################################
@@ -524,7 +526,7 @@ class GenerativeConditionalSchurFlow(torch.nn.Module):
         non_spatial_param_2 = self.non_spatial_cond_net(base_cond_2)
         spatial_param_2 = self.spatial_cond_net(base_cond_2)
         
-        z_base, base_logdet = self.cond_schur_transform.transform(x_base, non_spatial_param_2, spatial_param_2, initialization)
+        z_base, base_logdet = self.cond_schur_transform_2.transform(x_base, non_spatial_param_2, spatial_param_2, initialization)
         if type(base_logdet) is Actnorm: return z_base, base_logdet # init run unparameterized actnorm
 
         total_lodget = update_logdet+base_logdet
