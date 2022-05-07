@@ -57,9 +57,9 @@ class ConditionalSchurTransform(torch.nn.Module):
             self.spatial_conditional_transforms[affine_layer.name] = affine_layer
             affine_layers.append(affine_layer)
             
-            if layer_id != self.n_layers-1:
-                # affine_nonlin_layers.append(SLogGate(curr_c, curr_n, mode='non-spatial', name='affine_nonlin_'+str(layer_id)))
-                affine_nonlin_layers.append(FixedSLogGate(curr_c, curr_n, name='affine_nonlin_'+str(layer_id)))
+            # if layer_id != self.n_layers-1:
+            #     # affine_nonlin_layers.append(SLogGate(curr_c, curr_n, mode='non-spatial', name='affine_nonlin_'+str(layer_id)))
+            #     affine_nonlin_layers.append(FixedSLogGate(curr_c, curr_n, name='affine_nonlin_'+str(layer_id)))
 
         if self.final_actnorm: actnorm_layers.append(Actnorm(curr_c, curr_n, mode='non-spatial', name='final'))
 
@@ -195,7 +195,7 @@ class ConditionalSchurTransform(torch.nn.Module):
             conv_out, conv_logdet = self.conv_layers[layer_id].forward_with_logdet(actnorm_out, curr_kernel, curr_bias)
             conv_logdets.append(conv_logdet)
             
-            if layer_id != self.n_layers-1:
+            if layer_id != self.n_layers-1 and len(self.conv_nonlin_layers) > 0:
                 conv_nonlin_out, nonlin_logdet = self.conv_nonlin_layers[layer_id].forward_with_logdet(conv_out)
                 nonlin_logdets.append(nonlin_logdet)
             else:
@@ -206,7 +206,7 @@ class ConditionalSchurTransform(torch.nn.Module):
             affine_out, affine_logdet = self.affine_layers[layer_id].forward_with_logdet(conv_nonlin_out, curr_affine_bias, curr_affine_log_scale)
             affine_logdets.append(affine_logdet)
 
-            if layer_id != self.n_layers-1:
+            if layer_id != self.n_layers-1 and len(self.affine_nonlin_layers) > 0:
                 affine_nonlin_out, nonlin_logdet = self.affine_nonlin_layers[layer_id].forward_with_logdet(affine_out)
                 nonlin_logdets.append(nonlin_logdet)
             else:
@@ -234,7 +234,7 @@ class ConditionalSchurTransform(torch.nn.Module):
             if self.final_actnorm: layer_out = self.actnorm_layers[self.n_layers].inverse(layer_out)
 
             for layer_id in list(range(len(self.k_list)))[::-1]:
-                if layer_id != self.n_layers-1:
+                if layer_id != self.n_layers-1 and len(self.affine_nonlin_layers) > 0:
                     affine_out = self.affine_nonlin_layers[layer_id].inverse(layer_out)
                 else:
                     affine_out = layer_out
@@ -243,7 +243,7 @@ class ConditionalSchurTransform(torch.nn.Module):
                 curr_affine_bias, curr_affine_log_scale =  curr_params["bias"], curr_params["log_scale"]
                 conv_nonlin_out = self.affine_layers[layer_id].inverse(affine_out, curr_affine_bias, curr_affine_log_scale)
 
-                if layer_id != self.n_layers-1:
+                if layer_id != self.n_layers-1 and len(self.conv_nonlin_layers) > 0:
                     conv_out = self.conv_nonlin_layers[layer_id].inverse(conv_nonlin_out)
                 else:
                     conv_out = conv_nonlin_out

@@ -60,12 +60,12 @@ for e in flow_net.parameters():
     n_param += np.prod(e.shape)
 print('Total number of parameters: ' + str(n_param))
 
-# optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.5, 0.9), eps=1e-08)
+optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.5, 0.9), eps=1e-08)
 # optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.001, betas=(0.5, 0.9), eps=1e-08)
 # optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.5, 0.9), eps=1e-08)
 # optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.5, 0.9), eps=1e-08, weight_decay=5e-5)
 # optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0003, betas=(0.5, 0.9), eps=1e-08, weight_decay=5e-5)
-optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.001, betas=(0.9, 0.9))
+# optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.001, betas=(0.9, 0.9))
 # optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.9, 0.99), eps=1e-08, weight_decay=5e-5)
 # optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.001, betas=(0,  0.5), eps=1e-08)
 # optimizer = torch.optim.RMSprop(flow_net.parameters(), lr=0.0001, alpha=0.9, eps=1e-08, weight_decay=0, momentum=0.5, centered=False)
@@ -85,7 +85,7 @@ for epoch in range(10000):
         torch.nn.utils.clip_grad_norm_(flow_net.parameters(), 1)
         optimizer.step()
 
-        if i % 300 == 0:
+        if i % 2 == 0:
             train_latent, _ = flow_net.transform(train_image)
             train_image_reconst = flow_net.inverse_transform(train_latent)
 

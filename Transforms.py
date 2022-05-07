@@ -294,7 +294,9 @@ class Actnorm(torch.nn.Module):
 
         if self.mode == 'spatial': 
             logdet = log_scale.sum()
-        elif self.mode == 'non-spatial': 
+        elif self.mode == 'non-spatial':
+            print('SOMETHING SEEMS WRONG WITH THIS')
+            trace() 
             logdet = (self.n*self.n)*log_scale.sum()
         return actnorm_out, logdet
 
@@ -375,6 +377,51 @@ class Squeeze(torch.nn.Module):
             x = x.reshape(B, C//4, H*2, W*2)
             return x
 
+# class BatchNorm(torch.nn.Module):
+#     def __init__(self, c, n, name=''):
+#         super().__init__()
+#         self.name = 'BatchNormTransform_' + name
+#         self.epsilon = 1e-05
+#         self.n = n
+#         self.c = c
+
+#         beta_th = helper.cuda(torch.zeros((1, self.c, 1, 1), dtype=torch.float32))
+#         log_gamma_th = helper.cuda(torch.zeros((1, self.c, 1, 1), dtype=torch.float32))
+#         beta_param = torch.nn.parameter.Parameter(data=beta_th, requires_grad=True)
+#         log_gamma_param = torch.nn.parameter.Parameter(data=log_gamma_th, requires_grad=True)
+#         setattr(self, 'beta', beta_param)
+#         setattr(self, 'log_gamma', log_gamma_param)
+
+#     def forward_with_logdet(self, batch_norm_in):
+#         beta = getattr(self, 'beta')
+#         log_gamma = getattr(self, 'log_gamma')
+#         gamma = torch.exp(log_scale)
+
+#         mu = torch.mean(batch_norm_in, axis=[0, 2, 3], keepdims=True)
+#         mu.requires_grad = False
+#         centered = batch_norm_in-mu
+#         var = torch.mean(centered**2, axis=[0, 2, 3], keepdims=True)
+#         var.requires_grad = False
+#         scale = 1/torch.sqrt(var+self.epsilon)
+#         log_scale = torch.log(scale)
+#         normalized = centered*scale
+
+#         batch_norm_out = normalized*gamma+beta
+
+#         logdet = (self.n*self.n)*(log_gamma+log_scale).sum()
+#         return actnorm_out, logdet
+
+#     def inverse(self, actnorm_out):
+#         with torch.no_grad():
+#             beta = getattr(self, 'beta')
+#             log_gamma = getattr(self, 'log_gamma')
+#             gamma = torch.exp(log_scale)
+
+#             scale = torch.exp(log_scale)
+#             actnorm_in = (actnorm_out-bias)/(scale+1e-6)
+#             return actnorm_in
+
+    
 
 
 
