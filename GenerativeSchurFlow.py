@@ -13,7 +13,7 @@ import helper
 from Transforms import MultiChannel2DCircularConv, Logit, Tanh, PReLU, SLogGate, Actnorm, Squeeze
 
 class GenerativeSchurFlow(torch.nn.Module):
-    def __init__(self, c_in, n_in, k_list, squeeze_list, final_actnorm=True):
+    def __init__(self, c_in, n_in, k_list, squeeze_list, final_actnorm=False):
         super().__init__()
         assert (len(k_list) == len(squeeze_list))
         self.name = 'GenerativeSchurFlow'
@@ -45,12 +45,12 @@ class GenerativeSchurFlow(torch.nn.Module):
             assert (curr_n >= curr_k)
 
             actnorm_layers.append(Actnorm(curr_c, curr_n, name=str(layer_id)))
-            # conv_layers.append(MultiChannel2DCircularConv(
-            #     curr_c, curr_n, curr_k, kernel_init='I + he_uniform', 
-            #     bias_mode='spatial', scale_mode='no-scale', name=str(layer_id)))
             conv_layers.append(MultiChannel2DCircularConv(
-                curr_c, curr_n, curr_k, kernel_init='he_uniform', 
+                curr_c, curr_n, curr_k, kernel_init='I + he_uniform', 
                 bias_mode='spatial', scale_mode='no-scale', name=str(layer_id)))
+            # conv_layers.append(MultiChannel2DCircularConv(
+            #     curr_c, curr_n, curr_k, kernel_init='he_uniform', 
+            #     bias_mode='spatial', scale_mode='no-scale', name=str(layer_id)))
 
             if layer_id != self.n_layers-1:
                 # nonlin_layers.append(SLogGate(curr_c, curr_n, mode='spatial', name=str(layer_id)))
