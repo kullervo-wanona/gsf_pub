@@ -23,11 +23,11 @@ from GenerativeConditionalSchurFlow import GenerativeConditionalSchurFlow
 from DataLoaders.MNIST.MNISTLoader import DataLoader
 # from DataLoaders.CelebA.CelebA32Loader import DataLoader
 
-train_data_loader = DataLoader(batch_size=100)
+train_data_loader = DataLoader(batch_size=10)
 train_data_loader.setup('Training', randomized=True, verbose=True)
 _, _, example_batch = next(train_data_loader) 
 
-test_data_loader = DataLoader(batch_size=100)
+test_data_loader = DataLoader(batch_size=10)
 test_data_loader.setup('Test', randomized=False, verbose=False)
 _, _, example_test_batch = next(test_data_loader) 
 test_image = helper.cuda(torch.from_numpy(example_test_batch['Image']))
@@ -43,7 +43,7 @@ n_in=train_data_loader.image_size[3]
 # flow_net = GenerativeSchurFlow(c_in, n_in, k_list=[20, 20, 20], squeeze_list=[0, 0, 0])
 
 # flow_net = GenerativeSchurFlow(c_in, n_in, k_list=[4, 4, 4, 4, 4, 4], squeeze_list=[0, 0, 0, 0, 0, 0])
-flow_net = GenerativeSchurFlow(c_in, n_in, k_list=[10, 10, 10, 5, 5, 5], squeeze_list=[0, 0, 1, 1, 0, 0])
+flow_net = GenerativeSchurFlow(c_in, n_in, k_list=[5, 5, 5, 5, 5, 5, 5, 5, 5, 5], squeeze_list=[0, 0, 0, 0, 1, 0, 0, 0, 0, 0])
 # flow_net = GenerativeSchurFlow(c_in, n_in, k_list=[10, 10, 10, 10, 10], squeeze_list=[0, 0, 0, 0, 0])
 # flow_net = GenerativeSchurFlow(c_in, n_in, k_list=[10, 10, 10, 10, 10, 10, 10, 10, 10, 10], squeeze_list=[0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
 # flow_net = GenerativeConditionalSchurFlow(c_in, n_in)
@@ -60,17 +60,18 @@ for e in flow_net.parameters():
     n_param += np.prod(e.shape)
 print('Total number of parameters: ' + str(n_param))
 
-optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.5, 0.9), eps=1e-08)
+# optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.5, 0.9), eps=1e-08)
 # optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.001, betas=(0.5, 0.9), eps=1e-08)
 # optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.5, 0.9), eps=1e-08)
 # optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.5, 0.9), eps=1e-08, weight_decay=5e-5)
 # optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0003, betas=(0.5, 0.9), eps=1e-08, weight_decay=5e-5)
-# optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0005, betas=(0.9, 0.99), eps=1e-08, weight_decay=5e-5)
+optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.001, betas=(0.9, 0.9))
+# optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.9, 0.99), eps=1e-08, weight_decay=5e-5)
 # optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.001, betas=(0,  0.5), eps=1e-08)
 # optimizer = torch.optim.RMSprop(flow_net.parameters(), lr=0.0001, alpha=0.9, eps=1e-08, weight_decay=0, momentum=0.5, centered=False)
 
 exp_t_start = time.time()
-for epoch in range(100):
+for epoch in range(10000):
     train_data_loader.setup('Training', randomized=True, verbose=True)
     for i, curr_batch_size, batch_np in train_data_loader:     
 
@@ -78,7 +79,7 @@ for epoch in range(100):
         optimizer.zero_grad() # zero the parameter gradients
 
         z, x, logdet, log_pdf_z, log_pdf_x = flow_net(train_image)
-        train_loss = -torch.mean(logdet)-10*torch.mean(log_pdf_z)
+        train_loss = -torch.mean(logdet)-5*torch.mean(log_pdf_z)
 
         train_loss.backward()
         optimizer.step()

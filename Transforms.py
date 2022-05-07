@@ -33,7 +33,7 @@ class MultiChannel2DCircularConv(torch.nn.Module):
         rand_kernel_np = helper.get_conv_initial_weight_kernel_np([self.k, self.k], self.c, self.c, 'he_uniform')
         if self.kernel_init == 'I + he_uniform': 
             _, iden_kernel_np = spatial_conv2D_lib.generate_identity_kernel(self.c, self.k, 'full', backend='numpy')
-            kernel_np = iden_kernel_np + 0.01*rand_kernel_np 
+            kernel_np = iden_kernel_np + 0.1*rand_kernel_np 
         elif self.kernel_init == 'he_uniform': 
             kernel_np = rand_kernel_np
 
