@@ -60,13 +60,13 @@ class MultiChannel2DCircularConv(torch.nn.Module):
             setattr(self, 'log_scale', log_scale_param)
 
     def forward_with_logdet(self, conv_in):
+        if self.bias_mode in ['non-spatial', 'spatial']: 
+            bias = getattr(self, 'bias')
+            conv_in = conv_in+bias
+
         K = getattr(self, 'kernel')
         conv_out = spatial_conv2D_lib.spatial_circular_conv2D_th(conv_in, K)
         logdet = self.conv_kernel_to_logdet(K)
-
-        if self.bias_mode in ['non-spatial', 'spatial']: 
-            bias = getattr(self, 'bias')
-            conv_out = conv_out+bias
 
         if self.scale_mode in ['non-spatial', 'spatial']: 
             log_scale = getattr(self, 'log_scale')
@@ -86,12 +86,13 @@ class MultiChannel2DCircularConv(torch.nn.Module):
                 scale = torch.exp(log_scale)
                 conv_out = conv_out/(scale+1e-6)
 
-            if self.bias_mode in ['non-spatial', 'spatial']: 
-                bias = getattr(self, 'bias')
-                conv_out = conv_out-bias
-
             K = getattr(self, 'kernel')
             conv_in = self.conv_inverse_func(conv_out, K)
+
+            if self.bias_mode in ['non-spatial', 'spatial']: 
+                bias = getattr(self, 'bias')
+                conv_in = conv_in-bias
+
             return conv_in
 
 ########################################################################################################
@@ -193,6 +194,25 @@ class PReLU(torch.nn.Module):
             return nonlin_in
 
 ########################################################################################################
+
+class FixedSLogGate(torch.nn.Module):
+    def __init__(self, c, n, name=''):
+        super().__init__()
+        self.name = 'FixedSLogGate_' + name
+        self.n = n
+        self.c = c
+        # self.alpha = 2.14
+        self.alpha = 0.5
+
+    def forward_with_logdet(self, nonlin_in):
+        nonlin_out = (torch.sign(nonlin_in)/self.alpha)*torch.log(1+self.alpha*torch.abs(nonlin_in))
+        logdet = (-self.alpha*torch.abs(nonlin_out)).sum(axis=[1, 2, 3])
+        return nonlin_out, logdet
+
+    def inverse(self, nonlin_out):
+        with torch.no_grad():
+            nonlin_in = (torch.sign(nonlin_out)/self.alpha)*(torch.exp(self.alpha*torch.abs(nonlin_out))-1)
+            return nonlin_in
 
 class SLogGate(torch.nn.Module):
     def __init__(self, c, n, mode='non-spatial', name=''):

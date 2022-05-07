@@ -10,7 +10,7 @@ import numpy as np
 import torch
 
 import helper
-from Transforms import Actnorm, Squeeze, SLogGate, PReLU
+from Transforms import Actnorm, Squeeze, FixedSLogGate, SLogGate, PReLU
 from ConditionalTransforms import CondMultiChannel2DCircularConv, CondAffine #, CondPReLU, CondSLogGate
 
 class ConditionalSchurTransform(torch.nn.Module):
@@ -50,7 +50,8 @@ class ConditionalSchurTransform(torch.nn.Module):
             conv_layers.append(conv_layer)
 
             if layer_id != self.n_layers-1:
-                conv_nonlin_layers.append(PReLU(curr_c, curr_n, mode='non-spatial', name='conv_nonlin_'+str(layer_id)))
+                # conv_nonlin_layers.append(PReLU(curr_c, curr_n, mode='non-spatial', name='conv_nonlin_'+str(layer_id)))
+                conv_nonlin_layers.append(FixedSLogGate(curr_c, curr_n, name='conv_nonlin_'+str(layer_id)))
 
             affine_layer = CondAffine(curr_c, curr_n, mode='spatial', name=str(layer_id))
             self.spatial_conditional_transforms[affine_layer.name] = affine_layer
@@ -58,7 +59,7 @@ class ConditionalSchurTransform(torch.nn.Module):
             
             if layer_id != self.n_layers-1:
                 # affine_nonlin_layers.append(SLogGate(curr_c, curr_n, mode='non-spatial', name='affine_nonlin_'+str(layer_id)))
-                affine_nonlin_layers.append(PReLU(curr_c, curr_n, mode='non-spatial', name='affine_nonlin_'+str(layer_id)))
+                affine_nonlin_layers.append(FixedSLogGate(curr_c, curr_n, name='affine_nonlin_'+str(layer_id)))
 
         if self.final_actnorm: actnorm_layers.append(Actnorm(curr_c, curr_n, mode='non-spatial', name='final'))
 
@@ -284,9 +285,9 @@ class GenerativeConditionalSchurFlow(torch.nn.Module):
         self.base_cond_net_c_out = 128
         self.base_cond_net = self.create_base_cond_net(c_in=(self.c_in*4//2), c_out=self.base_cond_net_c_out)
         self.spatial_cond_net = self.create_spatial_cond_net(c_in=self.base_cond_net_c_out, 
-            c_out=self.cond_schur_transform.spatial_cond_param_shape[0]+self.cond_schur_transform_2.spatial_cond_param_shape[0])
+            c_out=self.cond_schur_transform.spatial_cond_param_shape[0])
         self.non_spatial_cond_net = self.create_non_spatial_cond_net(c_in=self.base_cond_net_c_out, n_in=(self.n_in//2), 
-            c_out=self.cond_schur_transform.non_spatial_n_cond_params+self.cond_schur_transform_2.non_spatial_n_cond_params)
+            c_out=self.cond_schur_transform.non_spatial_n_cond_params)
 
         self.c_out = self.cond_schur_transform.c_out + self.cond_schur_transform_2.c_out
         self.n_out = self.cond_schur_transform.n_out

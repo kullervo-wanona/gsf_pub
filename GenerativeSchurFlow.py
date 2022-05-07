@@ -10,7 +10,7 @@ import numpy as np
 import torch
 
 import helper
-from Transforms import MultiChannel2DCircularConv, Logit, Tanh, PReLU, SLogGate, Actnorm, Squeeze
+from Transforms import MultiChannel2DCircularConv, Logit, Tanh, PReLU, FixedSLogGate, SLogGate, Actnorm, Squeeze
 
 class GenerativeSchurFlow(torch.nn.Module):
     def __init__(self, c_in, n_in, k_list, squeeze_list, final_actnorm=False):
@@ -47,14 +47,15 @@ class GenerativeSchurFlow(torch.nn.Module):
             actnorm_layers.append(Actnorm(curr_c, curr_n, name=str(layer_id)))
             conv_layers.append(MultiChannel2DCircularConv(
                 curr_c, curr_n, curr_k, kernel_init='I + he_uniform', 
-                bias_mode='no-bias', scale_mode='no-scale', name=str(layer_id)))
+                bias_mode='non-spatial', scale_mode='no-scale', name=str(layer_id)))
             # conv_layers.append(MultiChannel2DCircularConv(
             #     curr_c, curr_n, curr_k, kernel_init='he_uniform', 
             #     bias_mode='spatial', scale_mode='no-scale', name=str(layer_id)))
 
-            if layer_id != self.n_layers-1:
-                # nonlin_layers.append(SLogGate(curr_c, curr_n, mode='spatial', name=str(layer_id)))
-                nonlin_layers.append(PReLU(curr_c, curr_n, mode='spatial', name=str(layer_id)))
+            # if layer_id != self.n_layers-1:
+            #     # nonlin_layers.append(SLogGate(curr_c, curr_n, mode='spatial', name=str(layer_id)))
+            #     nonlin_layers.append(PReLU(curr_c, curr_n, mode='non-spatial', name=str(layer_id)))
+            #     # nonlin_layers.append(FixedSLogGate(curr_c, curr_n, name=str(layer_id)))
 
         if self.final_actnorm: actnorm_layers.append(Actnorm(curr_c, curr_n, name='final'))
 
@@ -227,7 +228,7 @@ class GenerativeSchurFlow(torch.nn.Module):
             conv_out, conv_logdet = self.conv_layers[layer_id].forward_with_logdet(actnorm_out)
             conv_logdets.append(conv_logdet)
 
-            if layer_id != self.n_layers-1:
+            if layer_id != self.n_layers-1 and len(self.nonlin_layers) > 0:
                 nonlin_out, nonlin_logdet = self.nonlin_layers[layer_id].forward_with_logdet(conv_out)
                 nonlin_logdets.append(nonlin_logdet)
             else:
@@ -253,11 +254,11 @@ class GenerativeSchurFlow(torch.nn.Module):
             if self.final_actnorm: layer_out = self.actnorm_layers[self.n_layers].inverse(layer_out)
 
             for layer_id in list(range(len(self.k_list)))[::-1]:
-                if layer_id != self.n_layers-1:
+                if layer_id != self.n_layers-1 and len(self.nonlin_layers) > 0:
                     conv_out = self.nonlin_layers[layer_id].inverse(layer_out)
                 else:
                     conv_out = layer_out
-                
+
                 actnorm_out = self.conv_layers[layer_id].inverse(conv_out)
                 layer_in = self.actnorm_layers[layer_id].inverse(actnorm_out)
 
