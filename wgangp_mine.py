@@ -136,7 +136,6 @@ n_param = 0
 for e in netG.parameters():
     n_param += np.prod(e.shape)
 print('Total number of parameters: ' + str(n_param))
-trace()
 
 use_cuda = torch.cuda.is_available()
 if use_cuda:
@@ -321,7 +320,7 @@ for iteration in range(ITERS):
     #     lib.plot.plot('./tmp/cifar10/inception score', inception_score[0])
 
     # Calculate dev loss and generate samples every 100 iters
-    if iteration % 20 == 0:
+    if iteration % 500 == 0:
         # dev_disc_costs = []
         # for images, _ in dev_gen():
         #     images = images.reshape(BATCH_SIZE, 3, 32, 32).transpose(0, 2, 3, 1)
