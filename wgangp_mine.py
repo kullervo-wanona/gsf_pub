@@ -33,6 +33,8 @@ from pathlib import Path
 # if len(DATA_DIR) == 0:
 #     raise Exception('Please specify path to data directory in gan_cifar.py!')
 
+from GenerativeSchurFlow import GenerativeSchurFlow
+
 MODE = 'wgan-gp' # Valid options are dcgan, wgan, or wgan-gp
 DIM = 64 # This overfits substantially; you're probably better off with 64
 LAMBDA = 10 # Gradient penalty lambda hyperparameter
@@ -80,12 +82,14 @@ class Generator(nn.Module):
         self.tanh = nn.Tanh()
 
     def forward(self, input):
+        #batch x DIM input
         output = self.preprocess_it(input)
         output = output.view(-1, 4 * DIM, 4, 4)
         output = self.block1(output)
         output = self.block2(output)
         output = self.deconv_out(output)
         output = self.tanh(output)
+        #batch x 3, 32, 32
         return output.view(-1, 3, 32, 32)
 
 
@@ -131,7 +135,6 @@ if use_cuda:
 optimizerD = optim.Adam(netD.parameters(), lr=1e-4, betas=(0.5, 0.9))
 optimizerG = optim.Adam(netG.parameters(), lr=1e-4, betas=(0.5, 0.9))
 
-
 def calc_gradient_penalty(netD, real_data, fake_data):
     # print "real_data: ", real_data.size(), fake_data.size()
     alpha = torch.rand(BATCH_SIZE)
@@ -158,14 +161,13 @@ def calc_gradient_penalty(netD, real_data, fake_data):
 # For generating samples
 def generate_image(frame, netG):
     with torch.no_grad():
-        fixed_noise_128 = torch.randn(128, 128)
+        fixed_noise_128 = torch.randn(128, 3, 32, 32)
         if use_cuda:
             fixed_noise_128 = fixed_noise_128.cuda(gpu)
         # noisev = autograd.Variable(fixed_noise_128, volatile=True)
         noisev = fixed_noise_128
 
         samples = netG(noisev)
-        samples = samples.view(-1, 3, 32, 32)
         samples = samples.mul(0.5).add(0.5)
         samples = samples.cpu().data.numpy()
         
@@ -210,14 +212,10 @@ for iteration in range(ITERS):
     for p in netD.parameters():  # reset requires_grad
         p.requires_grad = True  # they are set to False below in netG update
     
-
     for i in range(CRITIC_ITERS): 
         print('Critic iterations: ', i)       
-
         _, _, batch = next(train_data_loader) 
         _data = batch["Image"]
-        if _data.shape[0] != BATCH_SIZE: continue
-
 
         # _data = gen.next()
         netD.zero_grad()
