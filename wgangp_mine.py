@@ -54,43 +54,50 @@ test_data_loader.setup('Test', randomized=False, verbose=False)
 _, _, example_test_batch = next(test_data_loader) 
 
 
+
+
 class Generator(nn.Module):
     def __init__(self):
         super(Generator, self).__init__()
-        preprocess_it = nn.Sequential(
-            nn.Linear(128, 4 * 4 * 4 * DIM),
-            # nn.BatchNorm2d(4 * 4 * 4 * DIM),
-            nn.ReLU(True),
-        )
+        # preprocess_it = nn.Sequential(
+        #     nn.Linear(128, 4 * 4 * 4 * DIM),
+        #     # nn.BatchNorm2d(4 * 4 * 4 * DIM),
+        #     nn.ReLU(True),
+        # )
 
-        block1 = nn.Sequential(
-            nn.ConvTranspose2d(4 * DIM, 2 * DIM, 2, stride=2),
-            nn.BatchNorm2d(2 * DIM),
-            nn.ReLU(True),
-        )
-        block2 = nn.Sequential(
-            nn.ConvTranspose2d(2 * DIM, DIM, 2, stride=2),
-            nn.BatchNorm2d(DIM),
-            nn.ReLU(True),
-        )
-        deconv_out = nn.ConvTranspose2d(DIM, 3, 2, stride=2)
+        # block1 = nn.Sequential(
+        #     nn.ConvTranspose2d(4 * DIM, 2 * DIM, 2, stride=2),
+        #     nn.BatchNorm2d(2 * DIM),
+        #     nn.ReLU(True),
+        # )
+        # block2 = nn.Sequential(
+        #     nn.ConvTranspose2d(2 * DIM, DIM, 2, stride=2),
+        #     nn.BatchNorm2d(DIM),
+        #     nn.ReLU(True),
+        # )
+        # deconv_out = nn.ConvTranspose2d(DIM, 3, 2, stride=2)
 
-        self.preprocess_it = preprocess_it
-        self.block1 = block1
-        self.block2 = block2
-        self.deconv_out = deconv_out
+        # self.preprocess_it = preprocess_it
+        # self.block1 = block1
+        # self.block2 = block2
+        # self.deconv_out = deconv_out
+        self.c_in = 3
+        self.n_in = 32
+        self.flow_net = GenerativeSchurFlow(self.c_in, self.n_in, k_list=[10]*7, squeeze_list=[0]*7)
         self.tanh = nn.Tanh()
 
     def forward(self, input):
         #batch x DIM input
-        output = self.preprocess_it(input)
-        output = output.view(-1, 4 * DIM, 4, 4)
-        output = self.block1(output)
-        output = self.block2(output)
-        output = self.deconv_out(output)
+        output, _ = self.flow_net.transform(input)
+        # output = self.preprocess_it(input)
+        # output = output.view(-1, 4 * DIM, 4, 4)
+        # output = self.block1(output)
+        # output = self.block2(output)
+        # output = self.deconv_out(output)
         output = self.tanh(output)
         #batch x 3, 32, 32
-        return output.view(-1, 3, 32, 32)
+        # return output.view(-1, 3, 32, 32)
+        return output
 
 
 class Discriminator(nn.Module):
@@ -118,6 +125,18 @@ netG = Generator()
 netD = Discriminator()
 print(netG)
 print(netD)
+
+n_param = 0
+for name, e in netG.named_parameters():
+    print(name, e.requires_grad, e.shape)
+    n_param += np.prod(e.shape)
+print('Total number of parameters: ' + str(n_param))
+
+n_param = 0
+for e in netG.parameters():
+    n_param += np.prod(e.shape)
+print('Total number of parameters: ' + str(n_param))
+trace()
 
 use_cuda = torch.cuda.is_available()
 if use_cuda:
@@ -213,9 +232,12 @@ for iteration in range(ITERS):
         p.requires_grad = True  # they are set to False below in netG update
     
     for i in range(CRITIC_ITERS): 
-        print('Critic iterations: ', i)       
-        _, _, batch = next(train_data_loader) 
+        print('Critic iterations: ', i)    
+        try: _, _, batch = next(train_data_loader) 
+        except: train_data_loader.setup('Training', randomized=True, verbose=True)
+
         _data = batch["Image"]
+        if _data.shape[0] != BATCH_SIZE: continue
 
         # _data = gen.next()
         netD.zero_grad()
@@ -223,6 +245,7 @@ for iteration in range(ITERS):
         # train with real
         _data = _data.reshape(BATCH_SIZE, 3, 32, 32).transpose(0, 2, 3, 1)
         real_data = torch.stack([preprocess(item) for item in _data])
+
 
         if use_cuda:
             real_data = real_data.cuda(gpu)
@@ -238,7 +261,7 @@ for iteration in range(ITERS):
         D_real_obj.backward()
 
         # train with fake
-        noise = torch.randn(BATCH_SIZE, 128)
+        noise = torch.randn(BATCH_SIZE, 3, 32, 32)
         if use_cuda:
             noise = noise.cuda(gpu)
         noisev = noise

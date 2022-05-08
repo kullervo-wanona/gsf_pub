@@ -295,8 +295,8 @@ class Actnorm(torch.nn.Module):
         if self.mode == 'spatial': 
             logdet = log_scale.sum()
         elif self.mode == 'non-spatial':
-            print('SOMETHING SEEMS WRONG WITH THIS')
-            trace() 
+            # print('SOMETHING SEEMS WRONG WITH THIS')
+            # trace()
             logdet = (self.n*self.n)*log_scale.sum()
         return actnorm_out, logdet
 
