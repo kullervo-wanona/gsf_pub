@@ -42,6 +42,7 @@ ITERS = 200000 # How many generator iterations to train for
 OUTPUT_DIM = 3072 # Number of pixels in CIFAR10 (3*32*32)
 
 from DataLoaders.CelebA.CelebA32Loader import DataLoader
+# from DataLoaders.CIFAR.Cifar10Loader import DataLoader
 
 train_data_loader = DataLoader(batch_size=BATCH_SIZE)
 train_data_loader.setup('Training', randomized=True, verbose=True)
@@ -214,7 +215,10 @@ for iteration in range(ITERS):
     for i in range(CRITIC_ITERS): 
         print('Critic iterations: ', i)       
 
-        _, _, batch = next(train_data_loader) 
+        try: _, _, batch = next(train_data_loader) 
+        except: train_data_loader.setup('Training', randomized=True, verbose=True)
+
+
         _data = batch["Image"]
         if _data.shape[0] != BATCH_SIZE: continue
 
