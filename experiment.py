@@ -86,7 +86,7 @@ for epoch in range(100000):
         torch.nn.utils.clip_grad_norm_(flow_net.parameters(), 1)
         optimizer.step()
 
-        if i % 100 == 0:
+        if i % 300 == 0:
             train_latent, _ = flow_net.transform_with_logdet(train_image)
             train_image_reconst = flow_net.inverse_transform(train_latent)
 
