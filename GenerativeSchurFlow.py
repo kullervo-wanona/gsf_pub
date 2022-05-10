@@ -116,7 +116,7 @@ class GenerativeSchurFlow(torch.nn.Module):
             if sub_image is not None: image_np = image_np[:, :sub_image[0], :sub_image[1], :sub_image[2]]
             image = helper.cuda(torch.from_numpy(image_np))
 
-            actnorm_out, actnorm_object_mean = self.transform(image, initialization=True)
+            actnorm_out, actnorm_object_mean = self.transform_with_logdet(image, initialization=True)
             if type(actnorm_object_mean) is not Actnorm: return None, None, None, None, None
 
             actnorm_out = helper.to_numpy(actnorm_out)
@@ -140,7 +140,7 @@ class GenerativeSchurFlow(torch.nn.Module):
             if sub_image is not None: image_np = image_np[:, :sub_image[0], :sub_image[1], :sub_image[2]]
             image = helper.cuda(torch.from_numpy(image_np))
 
-            actnorm_out, actnorm_object_var = self.transform(image, initialization=True)
+            actnorm_out, actnorm_object_var = self.transform_with_logdet(image, initialization=True)
             if type(actnorm_object_var) is not Actnorm: return None, None, None, None, None
 
             actnorm_out = helper.to_numpy(actnorm_out)
@@ -212,7 +212,7 @@ class GenerativeSchurFlow(torch.nn.Module):
 
     ################################################################################################
 
-    def transform(self, x, initialization=False):
+    def transform_with_logdet(self, x, initialization=False):
         actnorm_logdets, conv_logdets, nonlin_logdets = [], [], []
 
         layer_in = x
@@ -220,16 +220,16 @@ class GenerativeSchurFlow(torch.nn.Module):
             for squeeze_i in range(self.squeeze_list[layer_id]):
                 layer_in = self.squeeze_layer(layer_in)
 
-            actnorm_out, actnorm_logdet = self.actnorm_layers[layer_id].forward_with_logdet(layer_in)
+            actnorm_out, actnorm_logdet = self.actnorm_layers[layer_id].transform_with_logdet(layer_in)
             if initialization and not self.actnorm_layers[layer_id].initialized:
                 return actnorm_out, self.actnorm_layers[layer_id]
             actnorm_logdets.append(actnorm_logdet)
 
-            conv_out, conv_logdet = self.conv_layers[layer_id].forward_with_logdet(actnorm_out)
+            conv_out, conv_logdet = self.conv_layers[layer_id].transform_with_logdet(actnorm_out)
             conv_logdets.append(conv_logdet)
 
             if layer_id != self.n_layers-1 and len(self.nonlin_layers) > 0:
-                nonlin_out, nonlin_logdet = self.nonlin_layers[layer_id].forward_with_logdet(conv_out)
+                nonlin_out, nonlin_logdet = self.nonlin_layers[layer_id].transform_with_logdet(conv_out)
                 nonlin_logdets.append(nonlin_logdet)
             else:
                 nonlin_out = conv_out
@@ -238,7 +238,7 @@ class GenerativeSchurFlow(torch.nn.Module):
             layer_in = layer_out
 
         if self.final_actnorm: 
-            layer_out, actnorm_logdet = self.actnorm_layers[self.n_layers].forward_with_logdet(layer_out)
+            layer_out, actnorm_logdet = self.actnorm_layers[self.n_layers].transform_with_logdet(layer_out)
             if initialization and not self.actnorm_layers[self.n_layers].initialized:
                 return layer_out, self.actnorm_layers[self.n_layers]
             actnorm_logdets.append(actnorm_logdet)
@@ -251,19 +251,19 @@ class GenerativeSchurFlow(torch.nn.Module):
         with torch.no_grad():
 
             layer_out = y
-            if self.final_actnorm: layer_out = self.actnorm_layers[self.n_layers].inverse(layer_out)
+            if self.final_actnorm: layer_out = self.actnorm_layers[self.n_layers].inverse_transform(layer_out)
 
             for layer_id in list(range(len(self.k_list)))[::-1]:
                 if layer_id != self.n_layers-1 and len(self.nonlin_layers) > 0:
-                    conv_out = self.nonlin_layers[layer_id].inverse(layer_out)
+                    conv_out = self.nonlin_layers[layer_id].inverse_transform(layer_out)
                 else:
                     conv_out = layer_out
 
-                actnorm_out = self.conv_layers[layer_id].inverse(conv_out)
-                layer_in = self.actnorm_layers[layer_id].inverse(actnorm_out)
+                actnorm_out = self.conv_layers[layer_id].inverse_transform(conv_out)
+                layer_in = self.actnorm_layers[layer_id].inverse_transform(actnorm_out)
 
                 for squeeze_i in range(self.squeeze_list[layer_id]):
-                    layer_in = self.squeeze_layer.inverse(layer_in)
+                    layer_in = self.squeeze_layer.inverse_transform(layer_in)
                 layer_out = layer_in
 
             x = layer_in
@@ -271,7 +271,7 @@ class GenerativeSchurFlow(torch.nn.Module):
 
     def forward(self, x, dequantize=True):
         if dequantize: x = self.dequantize(x)
-        z, logdet = self.transform(x)
+        z, logdet = self.transform_with_logdet(x)
         log_pdf_z = self.compute_normal_log_pdf(z)
         log_pdf_x = log_pdf_z + logdet
         return z, x, logdet, log_pdf_z, log_pdf_x

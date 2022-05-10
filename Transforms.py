@@ -59,7 +59,7 @@ class MultiChannel2DCircularConv(torch.nn.Module):
             log_scale_param = torch.nn.parameter.Parameter(data=log_scale_th, requires_grad=True)
             setattr(self, 'log_scale', log_scale_param)
 
-    def forward_with_logdet(self, conv_in):
+    def transform_with_logdet(self, conv_in):
         if self.bias_mode in ['non-spatial', 'spatial']: 
             bias = getattr(self, 'bias')
             conv_in = conv_in+bias
@@ -79,7 +79,7 @@ class MultiChannel2DCircularConv(torch.nn.Module):
 
         return conv_out, logdet
 
-    def inverse(self, conv_out):
+    def inverse_transform(self, conv_out):
         with torch.no_grad():
             if self.scale_mode in ['non-spatial', 'spatial']: 
                 log_scale = getattr(self, 'log_scale')
@@ -106,7 +106,7 @@ class Logit(torch.nn.Module):
         self.scale = scale
         self.safe_mult = safe_mult
 
-    def forward_with_logdet(self, nonlin_in):
+    def transform_with_logdet(self, nonlin_in):
         nonlin_in_safe = (1-self.safe_mult)/2+nonlin_in*self.safe_mult
         log_nonlin_in_safe = torch.log(nonlin_in_safe)
         log_one_min_nonlin_in_safe = torch.log(1-nonlin_in_safe)
@@ -116,7 +116,7 @@ class Logit(torch.nn.Module):
             (-log_nonlin_in_safe-log_one_min_nonlin_in_safe).sum(axis=[1, 2, 3])
         return nonlin_out, logdet
 
-    def inverse(self, nonlin_out):
+    def inverse_transform(self, nonlin_out):
         with torch.no_grad():
             nonlin_in_safe = torch.sigmoid(nonlin_out/self.scale)
             nonlin_in = (nonlin_in_safe-(1-self.safe_mult)/2)/self.safe_mult
@@ -131,13 +131,13 @@ class Tanh(torch.nn.Module):
         self.n = n
         self.c = c
 
-    def forward_with_logdet(self, nonlin_in):
+    def transform_with_logdet(self, nonlin_in):
         nonlin_out = torch.tanh(nonlin_in)
         deriv = 1-nonlin_out*nonlin_out
         logdet = torch.log(deriv).sum(axis=[1, 2, 3])
         return nonlin_out, logdet
 
-    def inverse(self, nonlin_out):
+    def inverse_transform(self, nonlin_out):
         with torch.no_grad():
             nonlin_in = 0.5*(torch.log(1+nonlin_out)-torch.log(1-nonlin_out))
             return nonlin_in
@@ -155,16 +155,18 @@ class PReLU(torch.nn.Module):
 
         if self.mode == 'spatial': 
             pos_log_scale_th = helper.cuda(torch.zeros((1, self.c, self.n, self.n), dtype=torch.float32))
-            neg_log_scale_th = helper.cuda(-1.609*torch.ones((1, self.c, self.n, self.n), dtype=torch.float32))
+            neg_log_scale_th = helper.cuda(torch.zeros((1, self.c, self.n, self.n), dtype=torch.float32))
+            # neg_log_scale_th = helper.cuda(-1.609*torch.ones((1, self.c, self.n, self.n), dtype=torch.float32))
         elif self.mode == 'non-spatial': 
             pos_log_scale_th = helper.cuda(torch.zeros((1, self.c, 1, 1), dtype=torch.float32))
-            neg_log_scale_th = helper.cuda(-1.609*torch.ones((1, self.c, 1, 1), dtype=torch.float32))
+            neg_log_scale_th = helper.cuda(torch.zeros((1, self.c, 1, 1), dtype=torch.float32))
+            # neg_log_scale_th = helper.cuda(-1.609*torch.ones((1, self.c, 1, 1), dtype=torch.float32))
         pos_log_scale_param = torch.nn.parameter.Parameter(data=pos_log_scale_th, requires_grad=True)
         neg_log_scale_param = torch.nn.parameter.Parameter(data=neg_log_scale_th, requires_grad=True)
         setattr(self, 'pos_log_scale', pos_log_scale_param)
         setattr(self, 'neg_log_scale', neg_log_scale_param)
 
-    def forward_with_logdet(self, nonlin_in):
+    def transform_with_logdet(self, nonlin_in):
         pos_log_scale = getattr(self, 'pos_log_scale')
         neg_log_scale = getattr(self, 'neg_log_scale')
         pos_scale = torch.exp(pos_log_scale)
@@ -180,7 +182,7 @@ class PReLU(torch.nn.Module):
         logdet = log_deriv.sum(axis=[1, 2, 3])
         return nonlin_out, logdet
 
-    def inverse(self, nonlin_out):
+    def inverse_transform(self, nonlin_out):
         with torch.no_grad():
             pos_log_scale = getattr(self, 'pos_log_scale')
             neg_log_scale = getattr(self, 'neg_log_scale')
@@ -204,15 +206,17 @@ class FixedSLogGate(torch.nn.Module):
         # self.alpha = 2.14
         self.alpha = 0.5
 
-    def forward_with_logdet(self, nonlin_in):
+    def transform_with_logdet(self, nonlin_in):
         nonlin_out = (torch.sign(nonlin_in)/self.alpha)*torch.log(1+self.alpha*torch.abs(nonlin_in))
         logdet = (-self.alpha*torch.abs(nonlin_out)).sum(axis=[1, 2, 3])
         return nonlin_out, logdet
 
-    def inverse(self, nonlin_out):
+    def inverse_transform(self, nonlin_out):
         with torch.no_grad():
             nonlin_in = (torch.sign(nonlin_out)/self.alpha)*(torch.exp(self.alpha*torch.abs(nonlin_out))-1)
             return nonlin_in
+
+########################################################################################################
 
 class SLogGate(torch.nn.Module):
     def __init__(self, c, n, mode='non-spatial', name=''):
@@ -224,20 +228,20 @@ class SLogGate(torch.nn.Module):
         self.mode = mode
 
         if self.mode == 'spatial': 
-            log_alpha_th = helper.cuda(torch.zeros((1, self.c, self.n, self.n), dtype=torch.float32))
-        elif self.mode == 'non-spatial': 
-            log_alpha_th = helper.cuda(torch.zeros((1, self.c, 1, 1), dtype=torch.float32))
+            log_alpha_th = helper.cuda((-2.99)*torch.ones((1, self.c, self.n, self.n), dtype=torch.float32))
+        elif self.mode == 'non-spatial':
+            log_alpha_th = helper.cuda((-2.99)*torch.ones((1, self.c, 1, 1), dtype=torch.float32))
         log_alpha_param = torch.nn.parameter.Parameter(data=log_alpha_th, requires_grad=True)
         setattr(self, 'log_alpha', log_alpha_param)
 
-    def forward_with_logdet(self, nonlin_in):
+    def transform_with_logdet(self, nonlin_in):
         log_alpha = getattr(self, 'log_alpha')
         alpha = torch.exp(log_alpha)
         nonlin_out = (torch.sign(nonlin_in)/alpha)*torch.log(1+alpha*torch.abs(nonlin_in))
         logdet = (-alpha*torch.abs(nonlin_out)).sum(axis=[1, 2, 3])
         return nonlin_out, logdet
 
-    def inverse(self, nonlin_out):
+    def inverse_transform(self, nonlin_out):
         with torch.no_grad():
             log_alpha = getattr(self, 'log_alpha')
             alpha = torch.exp(log_alpha)
@@ -285,7 +289,7 @@ class Actnorm(torch.nn.Module):
     def set_initialized(self):
         self.initialized = True
 
-    def forward_with_logdet(self, actnorm_in):
+    def transform_with_logdet(self, actnorm_in):
         bias = getattr(self, 'bias')
         log_scale = getattr(self, 'log_scale')
 
@@ -295,12 +299,10 @@ class Actnorm(torch.nn.Module):
         if self.mode == 'spatial': 
             logdet = log_scale.sum()
         elif self.mode == 'non-spatial':
-            # print('SOMETHING SEEMS WRONG WITH THIS')
-            # trace()
             logdet = (self.n*self.n)*log_scale.sum()
         return actnorm_out, logdet
 
-    def inverse(self, actnorm_out):
+    def inverse_transform(self, actnorm_out):
         with torch.no_grad():
             bias = getattr(self, 'bias')
             log_scale = getattr(self, 'log_scale')
@@ -320,7 +322,7 @@ class Squeeze(torch.nn.Module):
         self.chan_mode = chan_mode
         self.spatial_mode = spatial_mode
 
-    def forward(self, x):
+    def transform_with_logdet(self, x):
         """Squeezes a C x H x W tensor into a 4C x H/2 x W/2 tensor.
         (See Fig 3 in the real NVP paper.)
         Args:
@@ -346,9 +348,9 @@ class Squeeze(torch.nn.Module):
                 x = torch.concat([x[:, :, 0, 0, np.newaxis], x[:, :, 1, 1, np.newaxis], 
                                   x[:, :, 0, 1, np.newaxis], x[:, :, 1, 0, np.newaxis]], axis=2)
                 x = x.reshape(B, C*4, H//2, W//2)            
-        return x
+        return x, 0
 
-    def inverse(self, x):
+    def inverse_transform(self, x):
         """unsqueezes a C x H x W tensor into a C/4 x 2H x 2W tensor.
         (See Fig 3 in the real NVP paper.)
         Args:
@@ -392,7 +394,7 @@ class Squeeze(torch.nn.Module):
 #         setattr(self, 'beta', beta_param)
 #         setattr(self, 'log_gamma', log_gamma_param)
 
-#     def forward_with_logdet(self, batch_norm_in):
+#     def transform_with_logdet(self, batch_norm_in):
 #         beta = getattr(self, 'beta')
 #         log_gamma = getattr(self, 'log_gamma')
 #         gamma = torch.exp(log_scale)
@@ -411,7 +413,7 @@ class Squeeze(torch.nn.Module):
 #         logdet = (self.n*self.n)*(log_gamma+log_scale).sum()
 #         return actnorm_out, logdet
 
-#     def inverse(self, actnorm_out):
+#     def inverse_transform(self, actnorm_out):
 #         with torch.no_grad():
 #             beta = getattr(self, 'beta')
 #             log_gamma = getattr(self, 'log_gamma')

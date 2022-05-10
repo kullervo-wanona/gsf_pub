@@ -26,10 +26,10 @@ data_loader.setup('Training', randomized=True, verbose=True)
 _, _, example_batch = next(data_loader) 
 
 c_in = 2
-n_in = 28
-flow_net = GenerativeConditionalSchurFlow(c_in=c_in, n_in=n_in)
-# flow_net.set_actnorm_parameters(data_loader, setup_mode='Training', n_batches=500, 
-#     test_normalization=True, sub_image=[c_in, n_in, n_in])
+n_in = 10
+flow_net = GenerativeConditionalSchurFlow(c_in=c_in, n_in=n_in, n_blocks=4)
+flow_net.set_actnorm_parameters(data_loader, setup_mode='Training', n_batches=50, 
+    test_normalization=True, sub_image=[c_in, n_in, n_in])
 
 n_param = 0
 for name, e in flow_net.named_parameters():
@@ -40,8 +40,22 @@ print('Total number of parameters: ' + str(n_param))
 example_input = helper.cuda(torch.from_numpy(example_batch['Image']))[:, :c_in, :n_in, :n_in]
 example_input_np = helper.to_numpy(example_input)
 
-example_out, logdet_computed = flow_net.transform(example_input)
+example_out, logdet_computed = flow_net.transform_with_logdet(example_input)
 logdet_computed_np = helper.to_numpy(logdet_computed)
+
+example_input_reconst = flow_net.inverse_transform(example_out) 
+example_input_reconst_np = helper.to_numpy(example_input_reconst)
+
+inversion_error_max = np.abs(example_input_reconst_np-example_input_np).max()
+inversion_error_mean = np.abs(example_input_reconst_np-example_input_np).mean()
+inversion_error_median = np.median(np.abs(example_input_reconst_np-example_input_np))
+print('Inversion error max:' + str(inversion_error_max))
+print('Inversion error mean:' + str(inversion_error_mean))
+print('Inversion error median:' + str(inversion_error_median))
+
+z, x, logdet, log_pdf_z, log_pdf_x = flow_net(example_input)
+x_sample = flow_net.sample_x(n_samples=10)
+
 J, J_flat = flow_net.jacobian(example_input)
 det_sign, logdet_desired_np = np.linalg.slogdet(J_flat)
 
@@ -50,14 +64,9 @@ print("Desired Logdet: \n", logdet_desired_np)
 print("Computed Logdet: \n", logdet_computed_np)
 print('Logdet error:' + str(logdet_desired_error))
 
-example_input_reconst = flow_net.inverse_transform(example_out) 
-example_input_reconst_np = helper.to_numpy(example_input_reconst)
-
-inversion_error = np.abs(example_input_reconst_np-example_input_np).max()
-print('Inversion error:' + str(inversion_error))
-
-z, x, log_pdf_z, log_pdf_x = flow_net(example_input)
-x_sample = flow_net.sample_x(n_samples=10)
+print('Inversion error max:' + str(inversion_error_max))
+print('Inversion error mean:' + str(inversion_error_mean))
+print('Inversion error median:' + str(inversion_error_median))
 
 assert (logdet_desired_error < 1e-3)
 assert (inversion_error < 1e-3)

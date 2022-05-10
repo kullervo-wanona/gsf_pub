@@ -17,8 +17,9 @@ from multi_channel_invertible_conv_lib import frequency_conv2D_lib
 ########################################################################################################
 
 class CondMultiChannel2DCircularConv(torch.nn.Module):
-    def __init__(self, c, n, k, bias_mode='non-spatial', name=''):
+    def __init__(self, c, n, k, kernel_init='I + net', bias_mode='non-spatial', name=''):
         super().__init__()
+        assert (kernel_init in ['I + net', 'net'])
         assert (bias_mode in ['no-bias', 'non-spatial'])
 
         self.name = 'CondMultiChannel2DCircularConv_' + name
@@ -26,27 +27,35 @@ class CondMultiChannel2DCircularConv(torch.nn.Module):
         self.c = c
         self.k = k
         self.bias_mode = bias_mode
-        self.parameter_sizes = {}
+        self.kernel_init = kernel_init
+
+        if self.kernel_init == 'I + net':
+            _, iden_kernel_np = spatial_conv2D_lib.generate_identity_kernel(self.c, self.k, 'full', backend='numpy')
+            self.iden_kernel = helper.cuda(torch.tensor(iden_kernel_np, dtype=torch.float32))
 
         self.conv_batch_inverse_func = spectral_schur_det_lib.generate_batch_frequency_inverse_circular_conv2D(self.k, self.n)
         self.conv_batch_kernel_to_logdet = spectral_schur_det_lib.generate_batch_kernel_to_schur_log_determinant(self.k, self.n)
 
+        self.parameter_sizes = {}
         self.parameter_sizes['kernel'] = [-1, self.c, self.c, self.k, self.k]
         if self.bias_mode == 'non-spatial': self.parameter_sizes['bias'] = [-1, self.c, 1, 1]
         else: self.parameter_sizes['bias'] = None
 
-    def forward_with_logdet(self, conv_in, K, bias, check_sizes=False):
+    def transform_with_logdet(self, conv_in, K, bias, check_sizes=False):
         if check_sizes: 
             assert (K.shape[1:] == self.parameter_sizes['kernel'])
             if self.bias_mode  == 'non-spatial': 
                 assert (bias.shape[1:] == self.parameter_sizes['bias'])
         
+        if self.kernel_init == 'I + net': K = K + self.iden_kernel[np.newaxis]
+
         conv_out = spatial_conv2D_lib.batch_spatial_circular_conv2D_th(conv_in, K)
         if self.bias_mode  == 'non-spatial': conv_out = conv_out+bias
+
         logdet = self.conv_batch_kernel_to_logdet(K)
         return conv_out, logdet
 
-    def inverse(self, conv_out, K, bias, check_sizes=False):
+    def inverse_transform(self, conv_out, K, bias, check_sizes=False):
         with torch.no_grad():
             if check_sizes: 
                 assert (K.shape == self.parameter_sizes['kernel'])
@@ -54,50 +63,80 @@ class CondMultiChannel2DCircularConv(torch.nn.Module):
                     assert (bias.shape == self.parameter_sizes['bias'])
             
             if self.bias_mode == 'non-spatial': conv_out = conv_out-bias
+    
+            if self.kernel_init == 'I + net': K = K + self.iden_kernel[np.newaxis]
             conv_in = self.conv_batch_inverse_func(conv_out, K)
             return conv_in
 
 ########################################################################################################
 
 class CondAffine(torch.nn.Module):
-    def __init__(self, c, n, mode='spatial', name=''):
+    def __init__(self, c, n, bias_mode='spatial', scale_mode='spatial', name=''):
         super().__init__()
-        assert (mode in ['non-spatial', 'spatial'])
+        assert (bias_mode in ['no-bias', 'non-spatial', 'spatial'])
+        assert (scale_mode in ['no-scale', 'non-spatial', 'spatial'])
+        assert (bias_mode != 'no-bias' or scale_mode != 'no-bias')
+
         self.name = 'CondAffine_' + name
         self.n = n
         self.c = c
-        self.mode = mode
+        self.bias_mode = bias_mode
+        self.scale_mode = scale_mode
         self.parameter_sizes = {}
 
-        if self.mode == 'spatial': 
+        self.parameter_sizes['bias'] = None
+        if self.bias_mode == 'spatial':
             self.parameter_sizes['bias'] = [-1, self.c, self.n, self.n]
-            self.parameter_sizes['log_scale'] = [-1, self.c, self.n, self.n]
-        elif self.mode == 'non-spatial': 
+        elif self.bias_mode == 'non-spatial': 
             self.parameter_sizes['bias'] = [-1, self.c, 1, 1]
+
+        self.parameter_sizes['log_scale'] = None
+        if self.scale_mode == 'spatial':
+            self.parameter_sizes['log_scale'] = [-1, self.c, self.n, self.n]
+        elif self.scale_mode == 'non-spatial': 
             self.parameter_sizes['log_scale'] = [-1, self.c, 1, 1]
 
-    def forward_with_logdet(self, affine_in, bias, log_scale, check_sizes=False):
+    def transform_with_logdet(self, affine_in, bias, log_scale, check_sizes=False):
         if check_sizes: 
-            assert (bias.shape == self.parameter_sizes['bias'])
-            assert (log_scale.shape == self.parameter_sizes['log_scale'])
+            if self.bias_mode != 'no-bias': 
+                assert (bias.shape == self.parameter_sizes['bias'])
+            if self.scale_mode != 'no-scale': 
+                assert (log_scale.shape == self.parameter_sizes['log_scale'])
+        
+        if self.scale_mode != 'no-scale': 
+            scale = torch.exp(log_scale)
 
-        scale = torch.exp(log_scale)
-        affine_out = affine_in*scale+bias
+        affine_out = affine_in
+        if self.scale_mode != 'no-scale': 
+            affine_out = affine_out*scale
+        if self.bias_mode != 'no-bias': 
+            affine_out = affine_out+bias
 
-        if self.mode == 'spatial': 
+        logdet = 0
+        if self.scale_mode == 'spatial': 
             logdet = log_scale.sum(axis=[1, 2, 3])
-        else:
+        elif self.scale_mode == 'non-spatial':
             logdet = (self.n*self.n)*log_scale.sum(axis=[1, 2, 3])
+            
         return affine_out, logdet
 
-    def inverse(self, affine_out, bias, log_scale, check_sizes=False):
+    def inverse_transform(self, affine_out, bias, log_scale, check_sizes=False):
         with torch.no_grad():
             if check_sizes: 
-                assert (bias.shape == self.parameter_sizes['bias'])
-                assert (log_scale.shape == self.parameter_sizes['log_scale'])
+                if self.bias_mode != 'no-bias': 
+                    assert (bias.shape == self.parameter_sizes['bias'])
+                if self.scale_mode != 'no-scale': 
+                    assert (log_scale.shape == self.parameter_sizes['log_scale'])
+            
+            if self.scale_mode != 'no-scale': 
+                scale = torch.exp(log_scale)
 
-            scale = torch.exp(log_scale)
-            affine_in = (affine_out-bias)/(scale+1e-6)
+            if self.bias_mode != 'no-bias': 
+                affine_out = affine_out-bias
+            if self.scale_mode != 'no-scale': 
+                affine_out = affine_out/(scale+1e-6)
+            affine_in = affine_out 
+            
             return affine_in
 
 ########################################################################################################
@@ -118,7 +157,7 @@ class CondPReLU(torch.nn.Module):
             self.pos_log_scale_shape = [1, self.c, 1, 1]
             self.neg_log_scale_shape = [1, self.c, 1, 1]
 
-    def forward_with_logdet(self, nonlin_in, pos_log_scale, neg_log_scale, check_sizes=False):
+    def transform_with_logdet(self, nonlin_in, pos_log_scale, neg_log_scale, check_sizes=False):
         if check_sizes: 
             assert (pos_log_scale.shape == self.pos_log_scale_shape)
             assert (neg_log_scale.shape == self.neg_log_scale_shape)
@@ -135,7 +174,7 @@ class CondPReLU(torch.nn.Module):
         logdet = log_deriv.sum(axis=[1, 2, 3])
         return nonlin_out, logdet
 
-    def inverse(self, nonlin_out, pos_log_scale, neg_log_scale, check_sizes=False):
+    def inverse_transform(self, nonlin_out, pos_log_scale, neg_log_scale, check_sizes=False):
         with torch.no_grad():
             if check_sizes: 
                 assert (pos_log_scale.shape == self.pos_log_scale_shape)
@@ -165,14 +204,14 @@ class CondSLogGate(torch.nn.Module):
         elif self.mode == 'non-spatial': 
             self.log_alpha_shape = [1, self.c, 1, 1]
 
-    def forward_with_logdet(self, nonlin_in, log_alpha, check_sizes=False):
+    def transform_with_logdet(self, nonlin_in, log_alpha, check_sizes=False):
         if check_sizes: assert (log_alpha.shape == self.log_alpha_shape)
         alpha = torch.exp(log_alpha)
         nonlin_out = (torch.sign(nonlin_in)/alpha)*torch.log(1+alpha*torch.abs(nonlin_in))
         logdet = (-alpha*torch.abs(nonlin_out)).sum(axis=[1, 2, 3])
         return nonlin_out, logdet
 
-    def inverse(self, nonlin_out, log_alpha, check_sizes=False):
+    def inverse_transform(self, nonlin_out, log_alpha, check_sizes=False):
         with torch.no_grad():
             if check_sizes: assert (log_alpha.shape == self.log_alpha_shape)
             alpha = torch.exp(log_alpha)

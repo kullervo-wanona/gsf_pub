@@ -46,8 +46,8 @@ n_in=train_data_loader.image_size[3]
 # flow_net = GenerativeSchurFlow(c_in, n_in, k_list=[10, 10, 10, 10, 10, 10, 10, 10, 10, 10], squeeze_list=[0, 0, 0, 0, 1, 0, 0, 0, 0, 0])
 # flow_net = GenerativeSchurFlow(c_in, n_in, k_list=[10, 10, 10, 10, 10], squeeze_list=[0, 0, 0, 0, 0])
 # flow_net = GenerativeSchurFlow(c_in, n_in, k_list=[10, 10, 10, 10, 10, 10, 10, 10, 10, 10], squeeze_list=[0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-flow_net = GenerativeConditionalSchurFlow(c_in, n_in)
-# flow_net.set_actnorm_parameters(train_data_loader, setup_mode='Training', n_batches=500, test_normalization=True)
+flow_net = GenerativeConditionalSchurFlow(c_in, n_in, n_blocks=3)
+# flow_net.set_actnorm_parameters(train_data_loader, setup_mode='Training', n_batches=2, test_normalization=True)
 
 n_param = 0
 for name, e in flow_net.named_parameters():
@@ -60,7 +60,7 @@ for e in flow_net.parameters():
     n_param += np.prod(e.shape)
 print('Total number of parameters: ' + str(n_param))
 
-optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.5, 0.9), eps=1e-08)
+optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.9, 0.9), eps=1e-08)
 # optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.001, betas=(0.5, 0.9), eps=1e-08)
 # optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.5, 0.9), eps=1e-08)
 # optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.5, 0.9), eps=1e-08, weight_decay=5e-5)
@@ -71,25 +71,26 @@ optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.5, 0.9),
 # optimizer = torch.optim.RMSprop(flow_net.parameters(), lr=0.0001, alpha=0.9, eps=1e-08, weight_decay=0, momentum=0.5, centered=False)
 
 exp_t_start = time.time()
-for epoch in range(10000):
+for epoch in range(100000):
     train_data_loader.setup('Training', randomized=True, verbose=True)
     for i, curr_batch_size, batch_np in train_data_loader:     
 
         train_image = helper.cuda(torch.from_numpy(batch_np['Image']))
-        optimizer.zero_grad() # zero the parameter gradients
+        optimizer.zero_grad() 
 
         z, x, logdet, log_pdf_z, log_pdf_x = flow_net(train_image)
-        train_loss = -torch.mean(logdet)-torch.mean(log_pdf_z)
+        # train_loss = -torch.mean(logdet)-torch.mean(log_pdf_z)
+        train_loss = -torch.mean(log_pdf_x)
 
         train_loss.backward()
         torch.nn.utils.clip_grad_norm_(flow_net.parameters(), 1)
         optimizer.step()
 
         if i % 2 == 0:
-            train_latent, _ = flow_net.transform(train_image)
+            train_latent, _ = flow_net.transform_with_logdet(train_image)
             train_image_reconst = flow_net.inverse_transform(train_latent)
 
-            test_latent, _ = flow_net.transform(test_image)
+            test_latent, _ = flow_net.transform_with_logdet(test_image)
             test_image_reconst = flow_net.inverse_transform(test_latent)
 
             _, _, _, train_log_pdf_z, train_log_pdf_x = flow_net(train_image)
