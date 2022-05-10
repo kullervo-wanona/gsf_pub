@@ -283,11 +283,11 @@ class GenerativeConditionalSchurFlow(torch.nn.Module):
         self.squeeze_layer = Squeeze()
 
         update_cond_schur_transform_list = [ConditionalSchurTransform(c_in=self.c_in*4//2, n_in=n_in//2, 
-            k_list=[3, 3, 3], squeeze_list=[0, 0, 0]) for i in range(self.n_blocks)]
+            k_list=[7, 7, 7, 7], squeeze_list=[0, 0, 0, 0]) for i in range(self.n_blocks)]
         self.update_cond_schur_transform_list = torch.nn.ModuleList(update_cond_schur_transform_list)
 
         base_cond_schur_transform_list = [ConditionalSchurTransform(c_in=self.c_in*4//2, n_in=n_in//2, 
-            k_list=[3, 3, 3], squeeze_list=[0, 0, 0]) for i in range(self.n_blocks)]
+            k_list=[7, 7, 7, 7], squeeze_list=[0, 0, 0, 0]) for i in range(self.n_blocks)]
         self.base_cond_schur_transform_list = torch.nn.ModuleList(base_cond_schur_transform_list)
 
         self.main_cond_net_c_out = 128
