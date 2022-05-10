@@ -295,8 +295,8 @@ class GenerativeConditionalSchurFlow(torch.nn.Module):
         self.main_cond_net = self.create_main_cond_net(c_in=(self.c_in*4//2), c_out=self.main_cond_net_c_out)
         self.spatial_cond_net = self.create_spatial_cond_net(c_in=self.main_cond_net_c_out, 
             c_out=self.update_cond_schur_transform_list[0].spatial_cond_param_shape[0])
-        self.non_spatial_cond_net = self.create_non_spatial_cond_net(c_in=self.main_cond_net_c_out, n_in=(self.n_in//2), 
-            c_out=self.update_cond_schur_transform_list[0].non_spatial_n_cond_params)
+        # self.non_spatial_cond_net = self.create_non_spatial_cond_net(c_in=self.main_cond_net_c_out, n_in=(self.n_in//2), 
+        #     c_out=self.update_cond_schur_transform_list[0].non_spatial_n_cond_params)
 
         self.c_out = self.c_in*4
         self.n_out = self.n_in//2
@@ -543,14 +543,16 @@ class GenerativeConditionalSchurFlow(torch.nn.Module):
         for i in range(self.n_blocks):
 
             main_cond = self.main_cond_net(curr_base)
-            non_spatial_param = self.non_spatial_cond_net(main_cond)
+            # non_spatial_param = self.non_spatial_cond_net(main_cond)
+            non_spatial_param = None
             spatial_param = self.spatial_cond_net(main_cond)
 
             new_update, update_logdet = self.update_cond_schur_transform_list[i].transform_with_logdet(curr_update, non_spatial_param, spatial_param, initialization)
             if type(update_logdet) is Actnorm: return new_update, update_logdet # init run unparameterized actnorm
 
             main_cond = self.main_cond_net(curr_update)
-            non_spatial_param = self.non_spatial_cond_net(main_cond)
+            # non_spatial_param = self.non_spatial_cond_net(main_cond)
+            non_spatial_param = None
             spatial_param = self.spatial_cond_net(main_cond)
             
             new_base, base_logdet = self.base_cond_schur_transform_list[i].transform_with_logdet(curr_base, non_spatial_param, spatial_param, initialization)
@@ -572,13 +574,15 @@ class GenerativeConditionalSchurFlow(torch.nn.Module):
             curr_base, curr_update = z_base, z_update
             for i in range(self.n_blocks-1, -1, -1):
                 main_cond = self.main_cond_net(curr_update)
-                non_spatial_param = self.non_spatial_cond_net(main_cond)
+                # non_spatial_param = self.non_spatial_cond_net(main_cond)
+                non_spatial_param = None
                 spatial_param = self.spatial_cond_net(main_cond)
                 
                 old_base = self.base_cond_schur_transform_list[i].inverse_transform(curr_base, non_spatial_param, spatial_param)
 
                 main_cond = self.main_cond_net(old_base)
-                non_spatial_param = self.non_spatial_cond_net(main_cond)
+                # non_spatial_param = self.non_spatial_cond_net(main_cond)
+                non_spatial_param = None
                 spatial_param = self.spatial_cond_net(main_cond)
 
                 old_update = self.update_cond_schur_transform_list[i].inverse_transform(curr_update, non_spatial_param, spatial_param)
