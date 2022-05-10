@@ -55,14 +55,14 @@ class ConditionalSchurTransform(torch.nn.Module):
             conv_layers.append(conv_layer)
 
             # conv_nonlin_layers.append(SLogGate(curr_c, curr_n, name='conv_nonlin_'+str(layer_id)))
-            conv_nonlin_layers.append(PReLU(curr_c, curr_n, name='conv_nonlin_'+str(layer_id)))
+            # conv_nonlin_layers.append(PReLU(curr_c, curr_n, name='conv_nonlin_'+str(layer_id)))
 
             scaling_layer = CondAffine(curr_c, curr_n, bias_mode='no-bias', scale_mode='spatial', name='scaling_'+str(layer_id))
             self.spatial_conditional_transforms[scaling_layer.name] = scaling_layer
             scaling_layers.append(scaling_layer)
             
             # scaling_nonlin_layers.append(SLogGate(curr_c, curr_n, name='scaling_nonlin_'+str(layer_id)))
-            scaling_nonlin_layers.append(PReLU(curr_c, curr_n, name='scaling_nonlin_'+str(layer_id)))
+            # scaling_nonlin_layers.append(PReLU(curr_c, curr_n, name='scaling_nonlin_'+str(layer_id)))
 
             additive_layer = CondAffine(curr_c, curr_n, bias_mode='spatial', scale_mode='no-scale', name='additive_'+str(layer_id))
             self.spatial_conditional_transforms[additive_layer.name] = additive_layer
@@ -71,9 +71,9 @@ class ConditionalSchurTransform(torch.nn.Module):
         self.actnorm_layers = torch.nn.ModuleList(actnorm_layers)
         self.pre_additive_layers = torch.nn.ModuleList(pre_additive_layers)
         self.conv_layers = torch.nn.ModuleList(conv_layers)
-        self.conv_nonlin_layers = torch.nn.ModuleList(conv_nonlin_layers)
+        # self.conv_nonlin_layers = torch.nn.ModuleList(conv_nonlin_layers)
         self.scaling_layers = torch.nn.ModuleList(scaling_layers)
-        self.scaling_nonlin_layers = torch.nn.ModuleList(scaling_nonlin_layers)
+        # self.scaling_nonlin_layers = torch.nn.ModuleList(scaling_nonlin_layers)
         self.additive_layers = torch.nn.ModuleList(additive_layers)
 
         self.squeeze_layer = Squeeze()        
@@ -209,16 +209,16 @@ class ConditionalSchurTransform(torch.nn.Module):
             curr_y, conv_logdet = self.conv_layers[layer_id].transform_with_logdet(curr_y, conv_kernel, conv_bias)
             conv_logdets.append(conv_logdet)
 
-            curr_y, conv_nonlin_logdet = self.conv_nonlin_layers[layer_id].transform_with_logdet(curr_y)
-            conv_nonlin_logdets.append(conv_nonlin_logdet)
+            # curr_y, conv_nonlin_logdet = self.conv_nonlin_layers[layer_id].transform_with_logdet(curr_y)
+            # conv_nonlin_logdets.append(conv_nonlin_logdet)
 
             curr_params = spatial_param_assignments[self.scaling_layers[layer_id].name]
             scaling_bias, scaling_log_scale =  curr_params["bias"], self.cond_mult*curr_params["log_scale"]
             curr_y, scaling_logdet = self.scaling_layers[layer_id].transform_with_logdet(curr_y, scaling_bias, scaling_log_scale)
             scaling_logdets.append(scaling_logdet)
 
-            curr_y, scaling_nonlin_logdet = self.scaling_nonlin_layers[layer_id].transform_with_logdet(curr_y)
-            scaling_nonlin_logdets.append(scaling_nonlin_logdet)
+            # curr_y, scaling_nonlin_logdet = self.scaling_nonlin_layers[layer_id].transform_with_logdet(curr_y)
+            # scaling_nonlin_logdets.append(scaling_nonlin_logdet)
 
             curr_params = spatial_param_assignments[self.additive_layers[layer_id].name]
             additive_bias, additive_log_scale =  self.cond_mult*curr_params["bias"], curr_params["log_scale"]
@@ -242,13 +242,13 @@ class ConditionalSchurTransform(torch.nn.Module):
                 additive_bias, additive_log_scale =  self.cond_mult*curr_params["bias"], curr_params["log_scale"]
                 curr_y = self.additive_layers[layer_id].inverse_transform(curr_y, additive_bias, additive_log_scale)
 
-                curr_y = self.scaling_nonlin_layers[layer_id].inverse_transform(curr_y)
+                # curr_y = self.scaling_nonlin_layers[layer_id].inverse_transform(curr_y)
 
                 curr_params = spatial_param_assignments[self.scaling_layers[layer_id].name]
                 scaling_bias, scaling_log_scale =  curr_params["bias"], self.cond_mult*curr_params["log_scale"]
                 curr_y = self.scaling_layers[layer_id].inverse_transform(curr_y, scaling_bias, scaling_log_scale)
 
-                curr_y = self.conv_nonlin_layers[layer_id].inverse_transform(curr_y)
+                # curr_y = self.conv_nonlin_layers[layer_id].inverse_transform(curr_y)
 
                 curr_params = non_spatial_param_assignments[self.conv_layers[layer_id].name]
                 conv_kernel, conv_bias = curr_params["kernel"], self.cond_mult*curr_params["bias"]

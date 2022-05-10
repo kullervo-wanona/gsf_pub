@@ -142,6 +142,7 @@ class Tanh(torch.nn.Module):
             nonlin_in = 0.5*(torch.log(1+nonlin_out)-torch.log(1-nonlin_out))
             return nonlin_in
 
+
 ########################################################################################################
 
 class PReLU(torch.nn.Module):
