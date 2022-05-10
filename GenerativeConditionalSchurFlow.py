@@ -23,7 +23,7 @@ class ConditionalSchurTransform(torch.nn.Module):
         self.k_list = k_list
         self.squeeze_list = squeeze_list
         self.n_layers = len(self.k_list)
-        self.cond_mult = 1.
+        self.cond_mult = 0.1
 
         print('\n**********************************************************')
         print('Creating ConditionalSchurTransform: ')
