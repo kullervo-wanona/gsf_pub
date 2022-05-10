@@ -72,7 +72,7 @@ class ConditionalSchurTransform(torch.nn.Module):
         self.pre_additive_layers = torch.nn.ModuleList(pre_additive_layers)
         # self.conv_layers = torch.nn.ModuleList(conv_layers)
         # self.conv_nonlin_layers = torch.nn.ModuleList(conv_nonlin_layers)
-        self.scaling_layers = torch.nn.ModuleList(scaling_layers)
+        # self.scaling_layers = torch.nn.ModuleList(scaling_layers)
         # self.scaling_nonlin_layers = torch.nn.ModuleList(scaling_nonlin_layers)
         self.additive_layers = torch.nn.ModuleList(additive_layers)
 
