@@ -44,36 +44,36 @@ class ConditionalSchurTransform(torch.nn.Module):
             print('Layer '+str(layer_id)+': c='+str(curr_c)+', n='+str(curr_n)+', k='+str(curr_k))
             assert (curr_n >= curr_k)
 
-            actnorm_layers.append(Actnorm(curr_c, curr_n, mode='non-spatial', name=str(layer_id)))
+            # actnorm_layers.append(Actnorm(curr_c, curr_n, mode='non-spatial', name=str(layer_id)))
 
-            pre_additive_layer = CondAffine(curr_c, curr_n, bias_mode='spatial', scale_mode='no-scale', name='pre_additive_'+str(layer_id))
-            self.spatial_conditional_transforms[pre_additive_layer.name] = pre_additive_layer
-            pre_additive_layers.append(pre_additive_layer)
+            # pre_additive_layer = CondAffine(curr_c, curr_n, bias_mode='spatial', scale_mode='no-scale', name='pre_additive_'+str(layer_id))
+            # self.spatial_conditional_transforms[pre_additive_layer.name] = pre_additive_layer
+            # pre_additive_layers.append(pre_additive_layer)
 
-            conv_layer = CondMultiChannel2DCircularConv(curr_c, curr_n, curr_k, bias_mode='non-spatial', name=str(layer_id))
-            self.non_spatial_conditional_transforms[conv_layer.name] = conv_layer
-            conv_layers.append(conv_layer)
+            # conv_layer = CondMultiChannel2DCircularConv(curr_c, curr_n, curr_k, bias_mode='non-spatial', name=str(layer_id))
+            # self.non_spatial_conditional_transforms[conv_layer.name] = conv_layer
+            # conv_layers.append(conv_layer)
 
-            conv_nonlin_layers.append(SLogGate(curr_c, curr_n, name='conv_nonlin_'+str(layer_id)))
-            conv_nonlin_layers.append(PReLU(curr_c, curr_n, name='conv_nonlin_'+str(layer_id)))
+            # conv_nonlin_layers.append(SLogGate(curr_c, curr_n, name='conv_nonlin_'+str(layer_id)))
+            # conv_nonlin_layers.append(PReLU(curr_c, curr_n, name='conv_nonlin_'+str(layer_id)))
 
             scaling_layer = CondAffine(curr_c, curr_n, bias_mode='no-bias', scale_mode='spatial', name='scaling_'+str(layer_id))
             self.spatial_conditional_transforms[scaling_layer.name] = scaling_layer
             scaling_layers.append(scaling_layer)
             
-            scaling_nonlin_layers.append(SLogGate(curr_c, curr_n, name='scaling_nonlin_'+str(layer_id)))
-            scaling_nonlin_layers.append(PReLU(curr_c, curr_n, name='scaling_nonlin_'+str(layer_id)))
+            # scaling_nonlin_layers.append(SLogGate(curr_c, curr_n, name='scaling_nonlin_'+str(layer_id)))
+            # scaling_nonlin_layers.append(PReLU(curr_c, curr_n, name='scaling_nonlin_'+str(layer_id)))
 
             additive_layer = CondAffine(curr_c, curr_n, bias_mode='spatial', scale_mode='no-scale', name='additive_'+str(layer_id))
             self.spatial_conditional_transforms[additive_layer.name] = additive_layer
             additive_layers.append(additive_layer)
             
-        self.actnorm_layers = torch.nn.ModuleList(actnorm_layers)
-        self.pre_additive_layers = torch.nn.ModuleList(pre_additive_layers)
-        self.conv_layers = torch.nn.ModuleList(conv_layers)
-        self.conv_nonlin_layers = torch.nn.ModuleList(conv_nonlin_layers)
+        # self.actnorm_layers = torch.nn.ModuleList(actnorm_layers)
+        # self.pre_additive_layers = torch.nn.ModuleList(pre_additive_layers)
+        # self.conv_layers = torch.nn.ModuleList(conv_layers)
+        # self.conv_nonlin_layers = torch.nn.ModuleList(conv_nonlin_layers)
         self.scaling_layers = torch.nn.ModuleList(scaling_layers)
-        self.scaling_nonlin_layers = torch.nn.ModuleList(scaling_nonlin_layers)
+        # self.scaling_nonlin_layers = torch.nn.ModuleList(scaling_nonlin_layers)
         self.additive_layers = torch.nn.ModuleList(additive_layers)
 
         self.squeeze_layer = Squeeze()        
@@ -195,30 +195,30 @@ class ConditionalSchurTransform(torch.nn.Module):
         for layer_id, k in enumerate(self.k_list):
             for squeeze_i in range(self.squeeze_list[layer_id]): curr_y, _ = self.squeeze_layer.transform_with_logdet(curr_y)
 
-            curr_y, actnorm_logdet = self.actnorm_layers[layer_id].transform_with_logdet(curr_y)
-            if initialization and not self.actnorm_layers[layer_id].initialized: return curr_y, self.actnorm_layers[layer_id]
-            actnorm_logdets.append(actnorm_logdet)
+            # curr_y, actnorm_logdet = self.actnorm_layers[layer_id].transform_with_logdet(curr_y)
+            # if initialization and not self.actnorm_layers[layer_id].initialized: return curr_y, self.actnorm_layers[layer_id]
+            # actnorm_logdets.append(actnorm_logdet)
 
-            curr_params = spatial_param_assignments[self.pre_additive_layers[layer_id].name]
-            pre_additive_bias, pre_additive_log_scale = self.cond_mult*curr_params["bias"], curr_params["log_scale"]
-            curr_y, pre_additive_logdet = self.pre_additive_layers[layer_id].transform_with_logdet(curr_y, pre_additive_bias, pre_additive_log_scale)
-            pre_additive_logdets.append(pre_additive_logdet)
+            # curr_params = spatial_param_assignments[self.pre_additive_layers[layer_id].name]
+            # pre_additive_bias, pre_additive_log_scale = self.cond_mult*curr_params["bias"], curr_params["log_scale"]
+            # curr_y, pre_additive_logdet = self.pre_additive_layers[layer_id].transform_with_logdet(curr_y, pre_additive_bias, pre_additive_log_scale)
+            # pre_additive_logdets.append(pre_additive_logdet)
 
-            curr_params = non_spatial_param_assignments[self.conv_layers[layer_id].name]
-            conv_kernel, conv_bias = curr_params["kernel"], self.cond_mult*curr_params["bias"]
-            curr_y, conv_logdet = self.conv_layers[layer_id].transform_with_logdet(curr_y, conv_kernel, conv_bias)
-            conv_logdets.append(conv_logdet)
+            # curr_params = non_spatial_param_assignments[self.conv_layers[layer_id].name]
+            # conv_kernel, conv_bias = curr_params["kernel"], self.cond_mult*curr_params["bias"]
+            # curr_y, conv_logdet = self.conv_layers[layer_id].transform_with_logdet(curr_y, conv_kernel, conv_bias)
+            # conv_logdets.append(conv_logdet)
 
-            curr_y, conv_nonlin_logdet = self.conv_nonlin_layers[layer_id].transform_with_logdet(curr_y)
-            conv_nonlin_logdets.append(conv_nonlin_logdet)
+            # curr_y, conv_nonlin_logdet = self.conv_nonlin_layers[layer_id].transform_with_logdet(curr_y)
+            # conv_nonlin_logdets.append(conv_nonlin_logdet)
 
             curr_params = spatial_param_assignments[self.scaling_layers[layer_id].name]
             scaling_bias, scaling_log_scale =  curr_params["bias"], self.cond_mult*curr_params["log_scale"]
             curr_y, scaling_logdet = self.scaling_layers[layer_id].transform_with_logdet(curr_y, scaling_bias, scaling_log_scale)
             scaling_logdets.append(scaling_logdet)
 
-            curr_y, scaling_nonlin_logdet = self.scaling_nonlin_layers[layer_id].transform_with_logdet(curr_y)
-            scaling_nonlin_logdets.append(scaling_nonlin_logdet)
+            # curr_y, scaling_nonlin_logdet = self.scaling_nonlin_layers[layer_id].transform_with_logdet(curr_y)
+            # scaling_nonlin_logdets.append(scaling_nonlin_logdet)
 
             curr_params = spatial_param_assignments[self.additive_layers[layer_id].name]
             additive_bias, additive_log_scale =  self.cond_mult*curr_params["bias"], curr_params["log_scale"]
@@ -242,23 +242,23 @@ class ConditionalSchurTransform(torch.nn.Module):
                 additive_bias, additive_log_scale =  self.cond_mult*curr_params["bias"], curr_params["log_scale"]
                 curr_y = self.additive_layers[layer_id].inverse_transform(curr_y, additive_bias, additive_log_scale)
 
-                curr_y = self.scaling_nonlin_layers[layer_id].inverse_transform(curr_y)
+                # curr_y = self.scaling_nonlin_layers[layer_id].inverse_transform(curr_y)
 
                 curr_params = spatial_param_assignments[self.scaling_layers[layer_id].name]
                 scaling_bias, scaling_log_scale =  curr_params["bias"], self.cond_mult*curr_params["log_scale"]
                 curr_y = self.scaling_layers[layer_id].inverse_transform(curr_y, scaling_bias, scaling_log_scale)
 
-                curr_y = self.conv_nonlin_layers[layer_id].inverse_transform(curr_y)
+                # curr_y = self.conv_nonlin_layers[layer_id].inverse_transform(curr_y)
 
-                curr_params = non_spatial_param_assignments[self.conv_layers[layer_id].name]
-                conv_kernel, conv_bias = curr_params["kernel"], self.cond_mult*curr_params["bias"]
-                curr_y = self.conv_layers[layer_id].inverse_transform(curr_y, conv_kernel, conv_bias)
+                # curr_params = non_spatial_param_assignments[self.conv_layers[layer_id].name]
+                # conv_kernel, conv_bias = curr_params["kernel"], self.cond_mult*curr_params["bias"]
+                # curr_y = self.conv_layers[layer_id].inverse_transform(curr_y, conv_kernel, conv_bias)
 
-                curr_params = spatial_param_assignments[self.pre_additive_layers[layer_id].name]
-                pre_additive_bias, pre_additive_log_scale = self.cond_mult*curr_params["bias"], curr_params["log_scale"]
-                curr_y = self.pre_additive_layers[layer_id].inverse_transform(curr_y, pre_additive_bias, pre_additive_log_scale)
+                # curr_params = spatial_param_assignments[self.pre_additive_layers[layer_id].name]
+                # pre_additive_bias, pre_additive_log_scale = self.cond_mult*curr_params["bias"], curr_params["log_scale"]
+                # curr_y = self.pre_additive_layers[layer_id].inverse_transform(curr_y, pre_additive_bias, pre_additive_log_scale)
 
-                curr_y = self.actnorm_layers[layer_id].inverse_transform(curr_y)
+                # curr_y = self.actnorm_layers[layer_id].inverse_transform(curr_y)
 
                 for squeeze_i in range(self.squeeze_list[layer_id]): curr_y = self.squeeze_layer.inverse_transform(curr_y)
 
@@ -267,7 +267,14 @@ class ConditionalSchurTransform(torch.nn.Module):
     
     ################################################################################################
 
+class ViewLayer(torch.nn.Module):
+    def __init__(self, shape):
+        super().__init__()
+        self.shape = shape
 
+    def forward(self, input):
+        return input.view(*self.shape)
+        
 class GenerativeConditionalSchurFlow(torch.nn.Module):
     def __init__(self, c_in, n_in, n_blocks=1):
         super().__init__()
@@ -282,112 +289,178 @@ class GenerativeConditionalSchurFlow(torch.nn.Module):
 
         self.squeeze_layer = Squeeze()
 
-        update_cond_schur_transform_list = [ConditionalSchurTransform(c_in=self.c_in*4//2, n_in=n_in//2, 
-            k_list=[3, 3, 3, 3, 3], squeeze_list=[0, 0, 0, 0, 0]) for i in range(self.n_blocks)]
+        update_cond_schur_transform_list = [ConditionalSchurTransform(c_in=self.c_in*4//2, n_in=self.n_in//2, 
+            k_list=[3], squeeze_list=[0]) for i in range(self.n_blocks)]
+            # k_list=[3, 3], squeeze_list=[0, 0]) for i in range(self.n_blocks)]
+            # k_list=[3, 3, 3, 3, 3], squeeze_list=[0, 0, 0, 0, 0]) for i in range(self.n_blocks)]
         self.update_cond_schur_transform_list = torch.nn.ModuleList(update_cond_schur_transform_list)
 
-        base_cond_schur_transform_list = [ConditionalSchurTransform(c_in=self.c_in*4//2, n_in=n_in//2, 
-            k_list=[3, 3, 3, 3, 3], squeeze_list=[0, 0, 0, 0, 0]) for i in range(self.n_blocks)]
+        base_cond_schur_transform_list = [ConditionalSchurTransform(c_in=self.c_in*4//2, n_in=self.n_in//2, 
+            k_list=[3], squeeze_list=[0]) for i in range(self.n_blocks)]
+            # k_list=[3, 3], squeeze_list=[0, 0]) for i in range(self.n_blocks)]
+            # k_list=[3, 3, 3, 3, 3], squeeze_list=[0, 0, 0, 0, 0]) for i in range(self.n_blocks)]
         self.base_cond_schur_transform_list = torch.nn.ModuleList(base_cond_schur_transform_list)
 
-        self.main_cond_net_c_out = 128
-        self.main_cond_net = self.create_main_cond_net(c_in=(self.c_in*4//2), c_out=self.main_cond_net_c_out)
-        self.spatial_cond_net = self.create_spatial_cond_net(c_in=self.main_cond_net_c_out, 
-            c_out=self.update_cond_schur_transform_list[0].spatial_cond_param_shape[0])
-        self.non_spatial_cond_net = self.create_non_spatial_cond_net(c_in=self.main_cond_net_c_out, n_in=(self.n_in//2), 
-            c_out=self.update_cond_schur_transform_list[0].non_spatial_n_cond_params)
+        self.main_cond_net_c_out = 256
+        self.main_cond_net = self.create_main_cond_net(c_in=(self.c_in*4//2), n_in=self.n_in//2, c_out=self.main_cond_net_c_out)
+        self.spatial_cond_net = self.create_spatial_cond_net(c_in=self.main_cond_net_c_out, n_out=self.n_in//2, c_out=self.update_cond_schur_transform_list[0].spatial_cond_param_shape[0])
+        self.non_spatial_cond_net = self.create_non_spatial_cond_net(c_in=self.main_cond_net_c_out, c_out=self.update_cond_schur_transform_list[0].non_spatial_n_cond_params)
+
+        # self.main_cond_net_c_out = 128
+        # self.main_cond_net = self.create_main_cond_net(c_in=(self.c_in*4//2), c_out=self.main_cond_net_c_out)
+        # self.spatial_cond_net = self.create_spatial_cond_net(c_in=self.main_cond_net_c_out, 
+        #     c_out=self.update_cond_schur_transform_list[0].spatial_cond_param_shape[0])
+        # self.non_spatial_cond_net = self.create_non_spatial_cond_net(c_in=self.main_cond_net_c_out, n_in=(self.n_in//2), 
+        #     c_out=self.update_cond_schur_transform_list[0].non_spatial_n_cond_params)
 
         self.c_out = self.c_in*4
         self.n_out = self.n_in//2
 
     ################################################################################################
 
-    def create_main_cond_net(self, c_in, c_out, channel_multiplier=5):
+    # def create_main_cond_net(self, c_in, c_out, channel_multiplier=5):
+    #     net = torch.nn.Sequential(
+    #         torch.nn.Conv2d(in_channels=c_in, out_channels=c_in*2*channel_multiplier, kernel_size=3, stride=1, padding='same',
+    #                         dilation=1, groups=1, bias=True, padding_mode='zeros'),
+    #         torch.nn.ReLU(),
+    #         torch.nn.Conv2d(in_channels=c_in*2*channel_multiplier, out_channels=c_in*4*channel_multiplier, kernel_size=3, stride=1, padding='same',
+    #                         dilation=1, groups=1, bias=True, padding_mode='zeros'),
+    #         torch.nn.ReLU(),
+    #         torch.nn.Conv2d(in_channels=c_in*4*channel_multiplier, out_channels=c_out, kernel_size=3, stride=1, padding='same',
+    #                         dilation=1, groups=1, bias=True, padding_mode='zeros'),
+    #         torch.nn.ReLU(),
+    #         )
+    #     net = helper.cuda(net)
+    #     return net
+
+    # def create_spatial_cond_net(self, c_in, c_out, channel_multiplier=1):
+    #     net = torch.nn.Sequential(
+    #         torch.nn.Conv2d(in_channels=c_in, out_channels=c_in*channel_multiplier, kernel_size=3, stride=1, padding='same',
+    #                         dilation=1, groups=1, bias=True, padding_mode='zeros'),
+    #         torch.nn.ReLU(),
+    #         torch.nn.Conv2d(in_channels=c_in*channel_multiplier, out_channels=c_out, kernel_size=3, stride=1, padding='same',
+    #                         dilation=1, groups=1, bias=True, padding_mode='zeros'),
+    #         )
+    #     net = helper.cuda(net)
+    #     return net
+
+    # def create_non_spatial_cond_net(self, c_in, n_in, c_out, channel_multiplier=1):
+    #     if n_in == 5:
+    #         net = torch.nn.Sequential(
+    #             torch.nn.Conv2d(in_channels=c_in, out_channels=c_in//2*channel_multiplier, kernel_size=4, stride=1, padding='valid', 
+    #                             dilation=1, groups=1, bias=True, padding_mode='zeros'),
+    #             torch.nn.ReLU(),
+    #             torch.nn.Conv2d(in_channels=c_in//2*channel_multiplier, out_channels=c_out//4, kernel_size=2, stride=1, padding='valid', 
+    #                             dilation=1, groups=1, bias=True, padding_mode='zeros'),
+    #             torch.nn.ReLU(),
+    #             torch.nn.Flatten(),
+    #             torch.nn.Linear(c_out//4, c_out)
+    #             )
+
+    #     if n_in == 14:
+    #         net = torch.nn.Sequential(
+    #             torch.nn.Conv2d(in_channels=c_in, out_channels=c_in//2*channel_multiplier, kernel_size=4, stride=2, padding='valid', 
+    #                             dilation=1, groups=1, bias=True, padding_mode='zeros'),
+    #             torch.nn.ReLU(),
+    #             torch.nn.Conv2d(in_channels=c_in//2*channel_multiplier, out_channels=c_in//4*channel_multiplier, kernel_size=4, stride=1, padding='valid', 
+    #                             dilation=1, groups=1, bias=True, padding_mode='zeros'),
+    #             torch.nn.ReLU(),
+    #             torch.nn.Conv2d(in_channels=c_in//4*channel_multiplier, out_channels=c_out//4, kernel_size=3, stride=1, padding='valid', 
+    #                             dilation=1, groups=1, bias=True, padding_mode='zeros'),
+    #             torch.nn.ReLU(),
+    #             torch.nn.Flatten(),
+    #             torch.nn.Linear(c_out//4, c_out)
+    #             )
+    #     if n_in == 16:
+    #         net = torch.nn.Sequential(
+    #             torch.nn.Conv2d(in_channels=c_in, out_channels=c_in//2*channel_multiplier, kernel_size=4, stride=2, padding='valid', 
+    #                             dilation=1, groups=1, bias=True, padding_mode='zeros'),
+    #             torch.nn.ReLU(),
+    #             torch.nn.Conv2d(in_channels=c_in//2*channel_multiplier, out_channels=c_in//4*channel_multiplier, kernel_size=4, stride=1, padding='valid', 
+    #                             dilation=1, groups=1, bias=True, padding_mode='zeros'),
+    #             torch.nn.ReLU(),
+    #             torch.nn.Conv2d(in_channels=c_in//4*channel_multiplier, out_channels=c_out//8, kernel_size=4, stride=1, padding='valid', 
+    #                             dilation=1, groups=1, bias=True, padding_mode='zeros'),
+    #             torch.nn.ReLU(),
+    #             torch.nn.Flatten(),
+    #             torch.nn.Linear(c_out//8, c_out)
+    #             )
+    #     if n_in == 32:
+    #         net = torch.nn.Sequential(
+    #             torch.nn.Conv2d(in_channels=c_in, out_channels=c_in//2*channel_multiplier, kernel_size=4, stride=2, padding='valid', 
+    #                             dilation=1, groups=1, bias=True, padding_mode='zeros'),
+    #             torch.nn.ReLU(),
+    #             torch.nn.Conv2d(in_channels=c_in//2*channel_multiplier, out_channels=c_in//2*channel_multiplier, kernel_size=4, stride=2, padding='valid', 
+    #                             dilation=1, groups=1, bias=True, padding_mode='zeros'),
+    #             torch.nn.ReLU(),
+    #             torch.nn.Conv2d(in_channels=c_in//2*channel_multiplier, out_channels=c_in//4*channel_multiplier, kernel_size=4, stride=1, padding='valid', 
+    #                             dilation=1, groups=1, bias=True, padding_mode='zeros'),
+    #             torch.nn.ReLU(),
+    #             torch.nn.Conv2d(in_channels=c_in//4*channel_multiplier, out_channels=c_out//8, kernel_size=3, stride=1, padding='valid', 
+    #                             dilation=1, groups=1, bias=True, padding_mode='zeros'),
+    #             torch.nn.ReLU(),
+    #             torch.nn.Flatten(),
+    #             torch.nn.Linear(c_out//8, c_out)
+    #             )
+    #     net = helper.cuda(net)
+    #     return net
+
+    ################################################################################################
+
+    def create_main_cond_net(self, c_in, n_in, c_out, channel_multiplier=8):
+
         net = torch.nn.Sequential(
-            torch.nn.Conv2d(in_channels=c_in, out_channels=c_in*2*channel_multiplier, kernel_size=3, stride=1, padding='same',
-                            dilation=1, groups=1, bias=True, padding_mode='zeros'),
-            torch.nn.ReLU(),
-            torch.nn.Conv2d(in_channels=c_in*2*channel_multiplier, out_channels=c_in*4*channel_multiplier, kernel_size=3, stride=1, padding='same',
-                            dilation=1, groups=1, bias=True, padding_mode='zeros'),
-            torch.nn.ReLU(),
-            torch.nn.Conv2d(in_channels=c_in*4*channel_multiplier, out_channels=c_out, kernel_size=3, stride=1, padding='same',
-                            dilation=1, groups=1, bias=True, padding_mode='zeros'),
-            torch.nn.ReLU(),
+            torch.nn.Flatten(),
+            torch.nn.Linear(c_in*n_in*n_in, channel_multiplier*32),
+            # torch.nn.BatchNorm1d(channel_multiplier*32),
+            # torch.nn.LayerNorm(channel_multiplier*32),
+            torch.nn.ReLU(True),
+            torch.nn.Linear(channel_multiplier*32, channel_multiplier*32),
+            # torch.nn.BatchNorm1d(channel_multiplier*32),
+            # torch.nn.LayerNorm(channel_multiplier*32),
+            torch.nn.ReLU(True),
+            torch.nn.Linear(channel_multiplier*32, c_out),
             )
         net = helper.cuda(net)
+        # out = net(torch.rand((10, c_in, n_in, n_in)))
+        # trace()
         return net
 
-    def create_spatial_cond_net(self, c_in, c_out, channel_multiplier=1):
+    def create_spatial_cond_net(self, c_in, n_out, c_out, channel_multiplier=8):
         net = torch.nn.Sequential(
-            torch.nn.Conv2d(in_channels=c_in, out_channels=c_in*channel_multiplier, kernel_size=3, stride=1, padding='same',
-                            dilation=1, groups=1, bias=True, padding_mode='zeros'),
-            torch.nn.ReLU(),
-            torch.nn.Conv2d(in_channels=c_in*channel_multiplier, out_channels=c_out, kernel_size=3, stride=1, padding='same',
-                            dilation=1, groups=1, bias=True, padding_mode='zeros'),
+            torch.nn.Linear(c_in, channel_multiplier*32),
+            # torch.nn.BatchNorm1d(channel_multiplier*32),
+            # torch.nn.LayerNorm(channel_multiplier*32),
+            torch.nn.ReLU(True),
+            torch.nn.Linear(channel_multiplier*32, c_out*n_out*n_out),
+            ViewLayer(shape=[-1, c_out, n_out, n_out])
             )
         net = helper.cuda(net)
+        # out = net(torch.rand((10, 512)))
+        # trace()
         return net
 
-    def create_non_spatial_cond_net(self, c_in, n_in, c_out, channel_multiplier=1):
-        if n_in == 5:
-            net = torch.nn.Sequential(
-                torch.nn.Conv2d(in_channels=c_in, out_channels=c_in//2*channel_multiplier, kernel_size=4, stride=1, padding='valid', 
-                                dilation=1, groups=1, bias=True, padding_mode='zeros'),
-                torch.nn.ReLU(),
-                torch.nn.Conv2d(in_channels=c_in//2*channel_multiplier, out_channels=c_out//4, kernel_size=2, stride=1, padding='valid', 
-                                dilation=1, groups=1, bias=True, padding_mode='zeros'),
-                torch.nn.ReLU(),
-                torch.nn.Flatten(),
-                torch.nn.Linear(c_out//4, c_out)
-                )
+    def create_non_spatial_cond_net(self, c_in, c_out, channel_multiplier=8):
+        net = torch.nn.Sequential(
+            torch.nn.Linear(c_in, channel_multiplier*32),
+            # torch.nn.BatchNorm1d(channel_multiplier*32),
+            # torch.nn.LayerNorm(channel_multiplier*32),
+            torch.nn.ReLU(True),
+            torch.nn.Linear(channel_multiplier*32, c_out),
+            )
 
-        if n_in == 14:
-            net = torch.nn.Sequential(
-                torch.nn.Conv2d(in_channels=c_in, out_channels=c_in//2*channel_multiplier, kernel_size=4, stride=2, padding='valid', 
-                                dilation=1, groups=1, bias=True, padding_mode='zeros'),
-                torch.nn.ReLU(),
-                torch.nn.Conv2d(in_channels=c_in//2*channel_multiplier, out_channels=c_in//4*channel_multiplier, kernel_size=4, stride=1, padding='valid', 
-                                dilation=1, groups=1, bias=True, padding_mode='zeros'),
-                torch.nn.ReLU(),
-                torch.nn.Conv2d(in_channels=c_in//4*channel_multiplier, out_channels=c_out//4, kernel_size=3, stride=1, padding='valid', 
-                                dilation=1, groups=1, bias=True, padding_mode='zeros'),
-                torch.nn.ReLU(),
-                torch.nn.Flatten(),
-                torch.nn.Linear(c_out//4, c_out)
-                )
-        if n_in == 16:
-            net = torch.nn.Sequential(
-                torch.nn.Conv2d(in_channels=c_in, out_channels=c_in//2*channel_multiplier, kernel_size=4, stride=2, padding='valid', 
-                                dilation=1, groups=1, bias=True, padding_mode='zeros'),
-                torch.nn.ReLU(),
-                torch.nn.Conv2d(in_channels=c_in//2*channel_multiplier, out_channels=c_in//4*channel_multiplier, kernel_size=4, stride=1, padding='valid', 
-                                dilation=1, groups=1, bias=True, padding_mode='zeros'),
-                torch.nn.ReLU(),
-                torch.nn.Conv2d(in_channels=c_in//4*channel_multiplier, out_channels=c_out//8, kernel_size=4, stride=1, padding='valid', 
-                                dilation=1, groups=1, bias=True, padding_mode='zeros'),
-                torch.nn.ReLU(),
-                torch.nn.Flatten(),
-                torch.nn.Linear(c_out//8, c_out)
-                )
-        if n_in == 32:
-            net = torch.nn.Sequential(
-                torch.nn.Conv2d(in_channels=c_in, out_channels=c_in//2*channel_multiplier, kernel_size=4, stride=2, padding='valid', 
-                                dilation=1, groups=1, bias=True, padding_mode='zeros'),
-                torch.nn.ReLU(),
-                torch.nn.Conv2d(in_channels=c_in//2*channel_multiplier, out_channels=c_in//2*channel_multiplier, kernel_size=4, stride=2, padding='valid', 
-                                dilation=1, groups=1, bias=True, padding_mode='zeros'),
-                torch.nn.ReLU(),
-                torch.nn.Conv2d(in_channels=c_in//2*channel_multiplier, out_channels=c_in//4*channel_multiplier, kernel_size=4, stride=1, padding='valid', 
-                                dilation=1, groups=1, bias=True, padding_mode='zeros'),
-                torch.nn.ReLU(),
-                torch.nn.Conv2d(in_channels=c_in//4*channel_multiplier, out_channels=c_out//8, kernel_size=3, stride=1, padding='valid', 
-                                dilation=1, groups=1, bias=True, padding_mode='zeros'),
-                torch.nn.ReLU(),
-                torch.nn.Flatten(),
-                torch.nn.Linear(c_out//8, c_out)
-                )
         net = helper.cuda(net)
+        # out = net(torch.rand((10, 512)))
+        # trace()
         return net
+
+    ################################################################################################
+
+    def cond_net_forward(self, x):
+        main_cond = self.main_cond_net(x)
+        non_spatial_param = self.non_spatial_cond_net(main_cond)
+        spatial_param = self.spatial_cond_net(main_cond)
+        return non_spatial_param, spatial_param
 
     ################################################################################################
 
@@ -541,17 +614,11 @@ class GenerativeConditionalSchurFlow(torch.nn.Module):
         all_logdets = []
         for i in range(self.n_blocks):
 
-            main_cond = self.main_cond_net(curr_base)
-            non_spatial_param = self.non_spatial_cond_net(main_cond)
-            spatial_param = self.spatial_cond_net(main_cond)
-
+            non_spatial_param, spatial_param = self.cond_net_forward(curr_base)
             new_update, update_logdet = self.update_cond_schur_transform_list[i].transform_with_logdet(curr_update, non_spatial_param, spatial_param, initialization)
             if type(update_logdet) is Actnorm: return new_update, update_logdet # init run unparameterized actnorm
 
-            main_cond = self.main_cond_net(new_update)
-            non_spatial_param = self.non_spatial_cond_net(main_cond)
-            spatial_param = self.spatial_cond_net(main_cond)
-            
+            non_spatial_param, spatial_param = self.cond_net_forward(new_update)            
             new_base, base_logdet = self.base_cond_schur_transform_list[i].transform_with_logdet(curr_base, non_spatial_param, spatial_param, initialization)
             if type(base_logdet) is Actnorm: return new_base, base_logdet # init run unparameterized actnorm
 
@@ -571,17 +638,12 @@ class GenerativeConditionalSchurFlow(torch.nn.Module):
             curr_base, curr_update = z_base, z_update
             for i in range(self.n_blocks-1, -1, -1):
 
-                main_cond = self.main_cond_net(curr_update)
-                non_spatial_param = self.non_spatial_cond_net(main_cond)
-                spatial_param = self.spatial_cond_net(main_cond)
-                    
+                non_spatial_param, spatial_param = self.cond_net_forward(curr_update)
                 old_base = self.base_cond_schur_transform_list[i].inverse_transform(curr_base, non_spatial_param, spatial_param)
 
-                main_cond = self.main_cond_net(old_base)
-                non_spatial_param = self.non_spatial_cond_net(main_cond)
-                spatial_param = self.spatial_cond_net(main_cond)
-
+                non_spatial_param, spatial_param = self.cond_net_forward(old_base)
                 old_update = self.update_cond_schur_transform_list[i].inverse_transform(curr_update, non_spatial_param, spatial_param)
+                
                 curr_base, curr_update = old_base, old_update
 
             x_squeezed = torch.concat([curr_base, curr_update], axis=1)
@@ -601,6 +663,99 @@ class GenerativeConditionalSchurFlow(torch.nn.Module):
 
 
 
+
+    # def create_main_cond_net(self, c_in, c_out, channel_multiplier=5):
+    #     net = torch.nn.Sequential(
+    #         torch.nn.Conv2d(in_channels=c_in, out_channels=c_in*2*channel_multiplier, kernel_size=3, stride=1, padding='same',
+    #                         dilation=1, groups=1, bias=True, padding_mode='zeros'),
+    #         torch.nn.ReLU(),
+    #         torch.nn.Conv2d(in_channels=c_in*2*channel_multiplier, out_channels=c_in*4*channel_multiplier, kernel_size=3, stride=1, padding='same',
+    #                         dilation=1, groups=1, bias=True, padding_mode='zeros'),
+    #         torch.nn.ReLU(),
+    #         torch.nn.Conv2d(in_channels=c_in*4*channel_multiplier, out_channels=c_out, kernel_size=3, stride=1, padding='same',
+    #                         dilation=1, groups=1, bias=True, padding_mode='zeros'),
+    #         torch.nn.ReLU(),
+    #         )
+    #     net = helper.cuda(net)
+    #     return net
+
+    # def create_spatial_cond_net(self, c_in, c_out, channel_multiplier=1):
+    #     net = torch.nn.Sequential(
+    #         torch.nn.Conv2d(in_channels=c_in, out_channels=c_in*channel_multiplier, kernel_size=3, stride=1, padding='same',
+    #                         dilation=1, groups=1, bias=True, padding_mode='zeros'),
+    #         torch.nn.ReLU(),
+    #         torch.nn.Conv2d(in_channels=c_in*channel_multiplier, out_channels=c_out, kernel_size=3, stride=1, padding='same',
+    #                         dilation=1, groups=1, bias=True, padding_mode='zeros'),
+    #         )
+    #     net = helper.cuda(net)
+    #     return net
+
+    # def create_non_spatial_cond_net(self, c_in, n_in, c_out, channel_multiplier=1):
+    #     if n_in == 5:
+    #         net = torch.nn.Sequential(
+    #             torch.nn.Conv2d(in_channels=c_in, out_channels=c_in//2*channel_multiplier, kernel_size=4, stride=1, padding='valid', 
+    #                             dilation=1, groups=1, bias=True, padding_mode='zeros'),
+    #             torch.nn.ReLU(),
+    #             torch.nn.Conv2d(in_channels=c_in//2*channel_multiplier, out_channels=c_out//4, kernel_size=2, stride=1, padding='valid', 
+    #                             dilation=1, groups=1, bias=True, padding_mode='zeros'),
+    #             torch.nn.ReLU(),
+    #             torch.nn.Flatten(),
+    #             torch.nn.Linear(c_out//4, c_out)
+    #             )
+
+    #     if n_in == 14:
+    #         net = torch.nn.Sequential(
+    #             torch.nn.Conv2d(in_channels=c_in, out_channels=c_in//2*channel_multiplier, kernel_size=4, stride=2, padding='valid', 
+    #                             dilation=1, groups=1, bias=True, padding_mode='zeros'),
+    #             torch.nn.ReLU(),
+    #             torch.nn.Conv2d(in_channels=c_in//2*channel_multiplier, out_channels=c_in//4*channel_multiplier, kernel_size=4, stride=1, padding='valid', 
+    #                             dilation=1, groups=1, bias=True, padding_mode='zeros'),
+    #             torch.nn.ReLU(),
+    #             torch.nn.Conv2d(in_channels=c_in//4*channel_multiplier, out_channels=c_out//4, kernel_size=3, stride=1, padding='valid', 
+    #                             dilation=1, groups=1, bias=True, padding_mode='zeros'),
+    #             torch.nn.ReLU(),
+    #             torch.nn.Flatten(),
+    #             torch.nn.Linear(c_out//4, c_out)
+    #             )
+    #     if n_in == 16:
+    #         net = torch.nn.Sequential(
+    #             torch.nn.Conv2d(in_channels=c_in, out_channels=c_in//2*channel_multiplier, kernel_size=4, stride=2, padding='valid', 
+    #                             dilation=1, groups=1, bias=True, padding_mode='zeros'),
+    #             torch.nn.ReLU(),
+    #             torch.nn.Conv2d(in_channels=c_in//2*channel_multiplier, out_channels=c_in//4*channel_multiplier, kernel_size=4, stride=1, padding='valid', 
+    #                             dilation=1, groups=1, bias=True, padding_mode='zeros'),
+    #             torch.nn.ReLU(),
+    #             torch.nn.Conv2d(in_channels=c_in//4*channel_multiplier, out_channels=c_out//8, kernel_size=4, stride=1, padding='valid', 
+    #                             dilation=1, groups=1, bias=True, padding_mode='zeros'),
+    #             torch.nn.ReLU(),
+    #             torch.nn.Flatten(),
+    #             torch.nn.Linear(c_out//8, c_out)
+    #             )
+    #     if n_in == 32:
+    #         net = torch.nn.Sequential(
+    #             torch.nn.Conv2d(in_channels=c_in, out_channels=c_in//2*channel_multiplier, kernel_size=4, stride=2, padding='valid', 
+    #                             dilation=1, groups=1, bias=True, padding_mode='zeros'),
+    #             torch.nn.ReLU(),
+    #             torch.nn.Conv2d(in_channels=c_in//2*channel_multiplier, out_channels=c_in//2*channel_multiplier, kernel_size=4, stride=2, padding='valid', 
+    #                             dilation=1, groups=1, bias=True, padding_mode='zeros'),
+    #             torch.nn.ReLU(),
+    #             torch.nn.Conv2d(in_channels=c_in//2*channel_multiplier, out_channels=c_in//4*channel_multiplier, kernel_size=4, stride=1, padding='valid', 
+    #                             dilation=1, groups=1, bias=True, padding_mode='zeros'),
+    #             torch.nn.ReLU(),
+    #             torch.nn.Conv2d(in_channels=c_in//4*channel_multiplier, out_channels=c_out//8, kernel_size=3, stride=1, padding='valid', 
+    #                             dilation=1, groups=1, bias=True, padding_mode='zeros'),
+    #             torch.nn.ReLU(),
+    #             torch.nn.Flatten(),
+    #             torch.nn.Linear(c_out//8, c_out)
+    #             )
+    #     net = helper.cuda(net)
+    #     return net
+
+    # def cond_net_forward(self, x):
+    #     main_cond = self.main_cond_net(x)
+    #     non_spatial_param = self.non_spatial_cond_net(main_cond)
+    #     spatial_param = self.spatial_cond_net(main_cond)
+    #     return non_spatial_param, spatial_param
 
 
 # # from DataLoaders.MNIST.MNISTLoader import DataLoader
