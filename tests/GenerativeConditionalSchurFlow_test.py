@@ -50,7 +50,6 @@ inversion_error_median = np.median(np.abs(example_input_reconst_np-example_input
 print('Inversion error max:' + str(inversion_error_max))
 print('Inversion error mean:' + str(inversion_error_mean))
 print('Inversion error median:' + str(inversion_error_median))
-trace()
 
 z, x, logdet, log_pdf_z, log_pdf_x = flow_net(example_input)
 x_sample = flow_net.sample_x(n_samples=10)
