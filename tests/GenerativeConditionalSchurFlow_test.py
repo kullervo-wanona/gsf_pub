@@ -41,8 +41,6 @@ example_input = helper.cuda(torch.from_numpy(example_batch['Image']))[:, :c_in, 
 example_input_np = helper.to_numpy(example_input)
 
 example_out, logdet_computed = flow_net.transform_with_logdet(example_input)
-logdet_computed_np = helper.to_numpy(logdet_computed)
-
 example_input_reconst = flow_net.inverse_transform(example_out) 
 example_input_reconst_np = helper.to_numpy(example_input_reconst)
 
@@ -52,6 +50,7 @@ inversion_error_median = np.median(np.abs(example_input_reconst_np-example_input
 print('Inversion error max:' + str(inversion_error_max))
 print('Inversion error mean:' + str(inversion_error_mean))
 print('Inversion error median:' + str(inversion_error_median))
+trace()
 
 z, x, logdet, log_pdf_z, log_pdf_x = flow_net(example_input)
 x_sample = flow_net.sample_x(n_samples=10)
@@ -59,6 +58,7 @@ x_sample = flow_net.sample_x(n_samples=10)
 J, J_flat = flow_net.jacobian(example_input)
 det_sign, logdet_desired_np = np.linalg.slogdet(J_flat)
 
+logdet_computed_np = helper.to_numpy(logdet_computed)
 logdet_desired_error = np.abs(logdet_desired_np-logdet_computed_np).max()
 print("Desired Logdet: \n", logdet_desired_np)
 print("Computed Logdet: \n", logdet_computed_np)
@@ -69,7 +69,7 @@ print('Inversion error mean:' + str(inversion_error_mean))
 print('Inversion error median:' + str(inversion_error_median))
 
 assert (logdet_desired_error < 1e-3)
-assert (inversion_error < 1e-3)
+assert (inversion_error_max < 1e-3)
 print('All tests passed.')
 
 
