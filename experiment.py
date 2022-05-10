@@ -20,8 +20,8 @@ import helper
 from GenerativeSchurFlow import GenerativeSchurFlow
 from GenerativeConditionalSchurFlow import GenerativeConditionalSchurFlow
 
-# from DataLoaders.MNIST.MNISTLoader import DataLoader
-from DataLoaders.CelebA.CelebA32Loader import DataLoader
+from DataLoaders.MNIST.MNISTLoader import DataLoader
+# from DataLoaders.CelebA.CelebA32Loader import DataLoader
 
 train_data_loader = DataLoader(batch_size=10)
 train_data_loader.setup('Training', randomized=True, verbose=True)

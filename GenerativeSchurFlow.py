@@ -45,6 +45,9 @@ class GenerativeSchurFlow(torch.nn.Module):
             assert (curr_n >= curr_k)
 
             actnorm_layers.append(Actnorm(curr_c, curr_n, name=str(layer_id)))
+
+            pre_additive_layers.append(Affine(curr_c, curr_n, bias_mode='spatial', scale_mode='no-scale', name='pre_additive_'+str(layer_id)))
+
             conv_layers.append(MultiChannel2DCircularConv(
                 curr_c, curr_n, curr_k, kernel_init='I + he_uniform', 
                 bias_mode='non-spatial', scale_mode='no-scale', name=str(layer_id)))
@@ -214,7 +217,7 @@ class GenerativeSchurFlow(torch.nn.Module):
 
     def transform_with_logdet(self, x, initialization=False):
         actnorm_logdets, conv_logdets, nonlin_logdets = [], [], []
-
+        x = x-0.5
         layer_in = x
         for layer_id, k in enumerate(self.k_list): 
             for squeeze_i in range(self.squeeze_list[layer_id]):
@@ -267,6 +270,7 @@ class GenerativeSchurFlow(torch.nn.Module):
                 layer_out = layer_in
 
             x = layer_in
+            x = x+0.5   
             return x
 
     def forward(self, x, dequantize=True):
