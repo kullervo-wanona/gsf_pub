@@ -20,7 +20,8 @@ import helper
 from GenerativeSchurFlow import GenerativeSchurFlow
 from GenerativeConditionalSchurFlow import GenerativeConditionalSchurFlow
 
-from DataLoaders.MNIST.MNISTLoader import DataLoader
+from DataLoaders.MNIST.ColorMNISTLoader import DataLoader
+# from DataLoaders.MNIST.MNISTLoader import DataLoader
 # from DataLoaders.CelebA.CelebA32Loader import DataLoader
 
 train_data_loader = DataLoader(batch_size=10)
@@ -60,8 +61,9 @@ for e in flow_net.parameters():
     n_param += np.prod(e.shape)
 print('Total number of parameters: ' + str(n_param))
 
+# optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.00001, betas=(0.9, 0.9), eps=1e-08)
 optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.5, 0.9), eps=1e-08)
-# optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.001, betas=(0.5, 0.9), eps=1e-08)
+# optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.9, 0.99), eps=1e-08)
 # optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.5, 0.9), eps=1e-08)
 # optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0001, betas=(0.5, 0.9), eps=1e-08, weight_decay=5e-5)
 # optimizer = torch.optim.Adam(flow_net.parameters(), lr=0.0003, betas=(0.5, 0.9), eps=1e-08, weight_decay=5e-5)
@@ -83,11 +85,11 @@ for epoch in range(100000):
         train_loss = -torch.mean(log_pdf_x)
 
         train_loss.backward()
-        torch.nn.utils.clip_grad_norm_(flow_net.parameters(), 1)
+        torch.nn.utils.clip_grad_norm_(flow_net.parameters(), 0.1)
         optimizer.step()
 
-        # if i % 100 == 0:
-        if i % 10 == 0:
+        if i % 50 == 0:
+        # if i % 10 == 0:
             train_latent, _ = flow_net.transform_with_logdet(train_image)
             train_image_reconst = flow_net.inverse_transform(train_latent)
 

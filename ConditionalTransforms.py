@@ -70,6 +70,40 @@ class CondMultiChannel2DCircularConv(torch.nn.Module):
 
 ########################################################################################################
 
+class CondAffineInterpolate(torch.nn.Module):
+    def __init__(self, c, n, name=''):
+        super().__init__()
+        self.name = 'CondAffineInterpolate_' + name
+        self.n = n
+        self.c = c
+
+        self.parameter_sizes = {}
+        self.parameter_sizes['bias'] = [-1, self.c, self.n, self.n]
+        self.parameter_sizes['pre_scale'] = [-1, self.c, self.n, self.n]
+
+    def transform_with_logdet(self, affine_in, bias, pre_scale, check_sizes=False):
+        if check_sizes: 
+            assert (bias.shape == self.parameter_sizes['bias'])
+            assert (pre_scale.shape == self.parameter_sizes['pre_scale'])
+        
+        scale = torch.sigmoid(pre_scale)
+        affine_out = scale*affine_in+(1-scale)*bias
+        log_scale = torch.log(scale)
+        logdet = log_scale.sum(axis=[1, 2, 3])
+        return affine_out, logdet
+
+    def inverse_transform(self, affine_out, bias, pre_scale, check_sizes=False):
+        with torch.no_grad():
+            if check_sizes: 
+                assert (bias.shape == self.parameter_sizes['bias'])
+                assert (pre_scale.shape == self.parameter_sizes['pre_scale'])
+            
+            scale = torch.sigmoid(pre_scale)
+            affine_in = (affine_out-(1-scale)*bias)/(scale+1e-6)            
+            return affine_in
+
+########################################################################################################
+
 class CondAffine(torch.nn.Module):
     def __init__(self, c, n, bias_mode='spatial', scale_mode='spatial', name=''):
         super().__init__()

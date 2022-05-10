@@ -33,7 +33,7 @@ class GenerativeSchurFlow(torch.nn.Module):
         print('\n**********************************************************')
         print('Creating GenerativeSchurFlow: ')
         print('**********************************************************\n')
-        conv_layers, nonlin_layers, actnorm_layers = [], [], []
+        conv_layers, pre_additive_layers, nonlin_layers, actnorm_layers = [], [], []
 
         accum_squeeze = 0
         for layer_id in range(self.n_layers):

@@ -15,26 +15,30 @@ import numpy as np
 np.set_printoptions(suppress=True)
 
 class DataLoader:
-    def __init__(self, batch_size):
+    def __init__(self, batch_size, validation_split=False):
         self.dataset_name = 'Color MNIST'
         self.batch_size = batch_size
         self.iter = 0
-        self.image_size = [-1, 28, 28, 3]
+        self.image_size = [-1, 3, 28, 28]
         self.dataset_dir = str(Path.home())+'/Datasets/MNIST/ColorMNIST/'
+        self.validation_split = validation_split
         try: self.load_h5()
         except: self.create_h5(); self.load_h5()
         self.setup('Training')
     
     def load_h5(self):
-        processed_file_path = self.dataset_dir + 'color_mnist.h5'
+        if self.validation_split: processed_file_path = self.dataset_dir + 'color_mnist_with_val.h5'
+        else: processed_file_path = self.dataset_dir + 'color_mnist.h5'
+
         print('Loading from h5 file: '+ processed_file_path)
         start_indiv = time.time()
         hf = h5py.File(processed_file_path, 'r')
 
         self.training_images = hf['training_images'][()]
         self.training_labels = hf['training_labels'][()]
-        self.validation_images = hf['validation_images'][()]
-        self.validation_labels = hf['validation_labels'][()]
+        if self.validation_split:
+            self.validation_images = hf['validation_images'][()]
+            self.validation_labels = hf['validation_labels'][()]
         self.test_images = hf['test_images'][()]
         self.test_labels = hf['test_labels'][()]
 
@@ -44,8 +48,9 @@ class DataLoader:
 
         self.training_images = self.training_images.astype(np.float32)/255.
         self.training_labels = self.training_labels.astype(np.float32)
-        self.validation_images = self.validation_images.astype(np.float32)/255.
-        self.validation_labels = self.validation_labels.astype(np.float32)
+        if self.validation_split:
+            self.validation_images = self.validation_images.astype(np.float32)/255.
+            self.validation_labels = self.validation_labels.astype(np.float32)
         self.test_images = self.test_images.astype(np.float32)/255.
         self.test_labels = self.test_labels.astype(np.float32)
 
@@ -55,34 +60,76 @@ class DataLoader:
         # rand_rgb = np.random.uniform(size=(image_tensor.shape[0], 1, 1, 3))
         # normalized_rgb = rand_rgb/np.sum(rand_rgb, axis=-1)[:, :, :, np.newaxis]
         # return image_tensor*(normalized_rgb)
-        return image_tensor*(0.3+0.7*np.random.uniform(size=(image_tensor.shape[0], 1, 1, 3)))
+        return image_tensor[:, np.newaxis, :, :]*(0.3+0.7*np.random.uniform(size=(image_tensor.shape[0], 3, 1, 1)))
 
     def create_h5(self):
         print('Loading from h5 file failed. Creating h5 file from data sources.')
         if not os.path.exists(self.dataset_dir): os.makedirs(self.dataset_dir)
-        from tensorflow.examples.tutorials.mnist import input_data
-        mnist = input_data.read_data_sets(self.dataset_dir, one_hot=True)
-        mnist_image_size = [-1, 28, 28, 1]
-        for f in glob.glob(self.dataset_dir + '*.gz'): os.remove(f)
+        import torchvision.datasets as datasets
+        mnist_train_images = datasets.MNIST(root='./data', train=True, download=True, transform=None).data
+        mnist_train_labels_int = datasets.MNIST(root='./data', train=True, download=True, transform=None).targets
+        mnist_test_images = datasets.MNIST(root='./data', train=False, download=True, transform=None).data
+        mnist_test_labels_int = datasets.MNIST(root='./data', train=False, download=True, transform=None).targets
 
-        training_images = (self.colorify(mnist.train.images.reshape(mnist_image_size))*255.).astype(np.uint8)
-        validation_images = (self.colorify(mnist.validation.images.reshape(mnist_image_size))*255.).astype(np.uint8)
-        test_images = (self.colorify(mnist.test.images.reshape(mnist_image_size))*255.).astype(np.uint8)
+        mnist_train_images = (self.colorify(mnist_train_images.numpy()/255.)*255.).astype(np.uint8)
+        mnist_test_images = (self.colorify(mnist_test_images.numpy()/255.)*255.).astype(np.uint8)
 
-        training_labels = (mnist.train.labels).astype(np.bool)
-        validation_labels = (mnist.validation.labels).astype(np.bool)
-        test_labels = (mnist.test.labels).astype(np.bool)
+        if self.validation_split:
+            mnist_validation_images = mnist_train_images[50000:]
+            mnist_train_images = mnist_train_images[:50000]
+        training_images = mnist_train_images.reshape(self.image_size)
+        if self.validation_split:
+            validation_images = mnist_validation_images.reshape(self.image_size)
+        test_images = mnist_test_images.reshape(self.image_size)
         
-        processed_file_path = self.dataset_dir + 'color_mnist.h5'
+        if self.validation_split:
+            mnist_validation_labels_int = mnist_train_labels_int[50000:]
+            mnist_train_labels_int = mnist_train_labels_int[:50000]
+
+        training_labels = np.zeros((mnist_train_labels_int.shape[0], 10), dtype=np.bool)
+        for i in range(mnist_train_labels_int.shape[0]): training_labels[i, mnist_train_labels_int[i]] = True
+        if self.validation_split:
+            validation_labels = np.zeros((mnist_validation_labels_int.shape[0], 10), dtype=np.bool)
+            for i in range(mnist_validation_labels_int.shape[0]): validation_labels[i, mnist_validation_labels_int[i]] = True
+        test_labels = np.zeros((mnist_test_labels_int.shape[0], 10), dtype=np.bool)
+        for i in range(mnist_test_labels_int.shape[0]): test_labels[i, mnist_test_labels_int[i]] = True
+        
+        if self.validation_split: processed_file_path = self.dataset_dir + 'color_mnist_with_val.h5'
+        else: processed_file_path = self.dataset_dir + 'color_mnist.h5'  
+
         print('Creating h5 file: ' + processed_file_path)
         hf = h5py.File(processed_file_path, 'w')
         hf.create_dataset('training_images', data=training_images, chunks=tuple(training_images.shape))
         hf.create_dataset('training_labels', data=training_labels, chunks=tuple(training_labels.shape))
-        hf.create_dataset('validation_images', data=validation_images, chunks=tuple(validation_images.shape))
-        hf.create_dataset('validation_labels', data=validation_labels, chunks=tuple(validation_labels.shape))
+        if self.validation_split:
+            hf.create_dataset('validation_images', data=validation_images, chunks=tuple(validation_images.shape))
+            hf.create_dataset('validation_labels', data=validation_labels, chunks=tuple(validation_labels.shape))
         hf.create_dataset('test_images', data=test_images, chunks=tuple(test_images.shape))
         hf.create_dataset('test_labels', data=test_labels, chunks=tuple(test_labels.shape))
         hf.flush(); hf.close()
+
+
+        # print('Loading from h5 file failed. Creating h5 file from data sources.')
+        # if not os.path.exists(self.dataset_dir): os.makedirs(self.dataset_dir)
+        # from tensorflow.examples.tutorials.mnist import input_data
+        # mnist = input_data.read_data_sets(self.dataset_dir, one_hot=True)
+        # mnist_image_size = [-1, 3, 28, 28]
+        # for f in glob.glob(self.dataset_dir + '*.gz'): os.remove(f)
+
+        # training_labels = (mnist.train.labels).astype(np.bool)
+        # validation_labels = (mnist.validation.labels).astype(np.bool)
+        # test_labels = (mnist.test.labels).astype(np.bool)
+        
+        # processed_file_path = self.dataset_dir + 'color_mnist.h5'
+        # print('Creating h5 file: ' + processed_file_path)
+        # hf = h5py.File(processed_file_path, 'w')
+        # hf.create_dataset('training_images', data=training_images, chunks=tuple(training_images.shape))
+        # hf.create_dataset('training_labels', data=training_labels, chunks=tuple(training_labels.shape))
+        # hf.create_dataset('validation_images', data=validation_images, chunks=tuple(validation_images.shape))
+        # hf.create_dataset('validation_labels', data=validation_labels, chunks=tuple(validation_labels.shape))
+        # hf.create_dataset('test_images', data=test_images, chunks=tuple(test_images.shape))
+        # hf.create_dataset('test_labels', data=test_labels, chunks=tuple(test_labels.shape))
+        # hf.flush(); hf.close()
 
     def report_status(self):
         print('\n')
@@ -99,22 +146,23 @@ class DataLoader:
         print('\n')
 
     def setup(self, stage, randomized=False, verbose=True):
-        assert (stage == 'Training' or stage == 'Validation' or stage == 'Test')
+        if self.validation_split: assert (stage == 'Training' or stage == 'Validation' or stage == 'Test')
+        else: assert (stage == 'Training' or stage == 'Test')   
         self.stage = stage
 
         if self.stage == 'Training':
             self.curr_data_order = np.arange(len(self.training_images))
-            if randomized: self.curr_data_order=np.random.permutation(self.curr_data_order)
+            if randomized: self.curr_data_order = np.random.permutation(self.curr_data_order)
             self.curr_images = self.training_images[self.curr_data_order, ...]
             self.curr_labels = self.training_labels[self.curr_data_order, ...]
         elif self.stage == 'Validation':
             self.curr_data_order = np.arange(len(self.validation_images))
-            if randomized: self.curr_data_order=np.random.permutation(self.curr_data_order)
+            if randomized: self.curr_data_order = np.random.permutation(self.curr_data_order)
             self.curr_images = self.validation_images[self.curr_data_order, ...]
             self.curr_labels = self.validation_labels[self.curr_data_order, ...]
         elif self.stage == 'Test':
             self.curr_data_order = np.arange(len(self.test_images))
-            if randomized: self.curr_data_order=np.random.permutation(self.curr_data_order)
+            if randomized: self.curr_data_order = np.random.permutation(self.curr_data_order)
             self.curr_images = self.test_images[self.curr_data_order, ...]
             self.curr_labels = self.test_labels[self.curr_data_order, ...]
 
