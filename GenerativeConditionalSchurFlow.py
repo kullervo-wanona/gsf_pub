@@ -534,13 +534,12 @@ class GenerativeConditionalSchurFlow(torch.nn.Module):
 ################################################################################################
 
     def transform_with_logdet(self, x, initialization=False):
-        # x = x - 0.5
+        x = x - 0.5
         x_squeezed, _ = self.squeeze_layer.transform_with_logdet(x)
         curr_base, curr_update = x_squeezed[:, :x_squeezed.shape[1]//2], x_squeezed[:, x_squeezed.shape[1]//2:]
 
         all_logdets = []
         for i in range(self.n_blocks):
-            # print('Block: ', i)
 
             main_cond = self.main_cond_net(curr_base)
             non_spatial_param = self.non_spatial_cond_net(main_cond)
@@ -571,8 +570,7 @@ class GenerativeConditionalSchurFlow(torch.nn.Module):
             
             curr_base, curr_update = z_base, z_update
             for i in range(self.n_blocks-1, -1, -1):
-                # print('Block: ', i)
-                
+
                 main_cond = self.main_cond_net(curr_update)
                 non_spatial_param = self.non_spatial_cond_net(main_cond)
                 spatial_param = self.spatial_cond_net(main_cond)
@@ -588,7 +586,7 @@ class GenerativeConditionalSchurFlow(torch.nn.Module):
 
             x_squeezed = torch.concat([curr_base, curr_update], axis=1)
             x = self.squeeze_layer.inverse_transform(x_squeezed)
-            # x = x + 0.5
+            x = x + 0.5
             return x 
 
     def forward(self, x, dequantize=True):
